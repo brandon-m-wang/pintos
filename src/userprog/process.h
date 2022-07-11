@@ -29,6 +29,15 @@ struct process {
   struct thread* main_thread; /* Pointer to main thread */
 };
 
+struct process_fields {
+   struct semaphore sem;
+   struct lock lock;
+   struct list_elem elem;
+   pid_t pid;
+   int ec;
+   int process_started;
+};
+
 void userprog_init(void);
 
 pid_t process_execute(const char* file_name);

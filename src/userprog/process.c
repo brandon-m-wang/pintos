@@ -20,7 +20,6 @@
 #include "threads/thread.h"
 #include "threads/vaddr.h"
 
-static struct semaphore temporary;
 static thread_func start_process NO_RETURN;
 static bool load(const char* file_name, void (**eip)(void), void** esp);
 
@@ -52,7 +51,6 @@ pid_t process_execute(const char* file_name) {
   char* fn_copy;
   tid_t tid;
 
-  sema_init(&temporary, 0);
   /* Make a copy of FILE_NAME.
      Otherwise there's a race between the caller and load(). */
   fn_copy = palloc_get_page(0);
@@ -64,7 +62,27 @@ pid_t process_execute(const char* file_name) {
   tid = thread_create(file_name, PRI_DEFAULT, start_process, fn_copy);
   if (tid == TID_ERROR)
     palloc_free_page(fn_copy);
-  return tid;
+
+  /* Task 2: Process Control Syscalls */
+  // Retrieve the created child's process_fields struct
+  struct thread *cur = thread_current();
+  struct process_fields *child_process_fields;
+  struct process_fields *curr_process_fields;
+  struct list_elem *iter;
+  for (iter = list_begin(&cur->children); iter != list_end(&cur->children); iter = list_next(iter)) {
+    curr_process_fields = list_entry(iter, struct process_fields, elem);
+    if (curr_process_fields->pid == tid) {
+      child_process_fields = curr_process_fields;
+    }
+  }
+  // Sema down so that start_process can reach a conclusion before
+  // proceeding with error checking.
+  sema_down(&child_process_fields->sem);
+  if (child_process_fields->process_started == 1) {
+    return tid;
+  }
+  return TID_ERROR;
+  /* End Task 2: Process Control Syscalls */
 }
 
 /* A thread function that loads a user process and starts it
@@ -112,11 +130,18 @@ static void start_process(void* file_name_) {
 
   /* Clean up. Exit on failure or jump to userspace */
   palloc_free_page(file_name);
+  /* Task 2: Process Control Syscalls */
+  struct thread *cur = thread_current();
   if (!success) {
-    sema_up(&temporary);
+    cur->process_fields->process_started = 0;
+    sema_up(&cur->process_fields->sem);
     thread_exit();
   }
 
+  cur->process_fields->process_started = 1;
+  sema_up(&cur->process_fields->sem);
+  /* End Task 2: Process Control Syscalls */
+  
   /* Start the user process by simulating a return from an
      interrupt, implemented by intr_exit (in
      threads/intr-stubs.S).  Because intr_exit takes all of its
@@ -136,9 +161,29 @@ static void start_process(void* file_name_) {
 
    This function will be implemented in problem 2-2.  For now, it
    does nothing. */
-int process_wait(pid_t child_pid UNUSED) {
-  sema_down(&temporary);
-  return 0;
+int process_wait(pid_t child_pid) {
+  /* Task 2: Process Control Syscalls */
+  int exit_code;
+  struct thread *parent_thread = thread_current();
+  struct list *children = &parent_thread->children;
+  struct process_fields *child_process_fields = NULL;
+  struct process_fields *curr_process_fields;
+  struct list_elem *iter;
+  for (iter = list_begin(children); iter != list_end(children); iter = list_next(iter)) {
+    curr_process_fields = list_entry(iter, struct process_fields, elem);
+    if (child_process_fields->pid == child_pid) {
+      child_process_fields = curr_process_fields;
+    }
+  }
+  if (child_process_fields == NULL) {
+    exit_code = -1;
+  } else {
+    sema_down(&child_process_fields->sem);
+    exit_code = child_process_fields->ec;
+    list_remove(&child_process_fields->elem);
+  }
+  return exit_code;
+  /* End Task 2: Process Control Syscalls */
 }
 
 /* Free the current process's resources. */
@@ -176,7 +221,20 @@ void process_exit(void) {
   cur->pcb = NULL;
   free(pcb_to_free);
 
-  sema_up(&temporary);
+  /* Task 2: Process Control Syscalls */
+  // Allow waiting parent to proceed
+  if (cur->process_fields != NULL) {
+    sema_up(&cur->process_fields->sem);
+  }
+  // If parent exits before children, free children resources
+  while (!list_empty(&cur->children)) {
+    // We free the children's process_fields regardless if they exit before or after the
+    // parent, since the process_fields struct serves to inform the parent, and becomes
+    // useless if the parent disappears.
+    free(list_entry(list_pop_front(&cur->children), struct process_fields, elem));
+  }
+  free(&cur->process_fields);
+  /* End Task 2: Process Control Syscalls */
   thread_exit();
 }
 
