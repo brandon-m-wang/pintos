@@ -128,6 +128,58 @@ static void start_process(void* file_name_) {
     free(pcb_to_free);
   }
 
+  /* Task 1: Argument Passing */
+
+  // Use strtok() to split the filename argument into the argc and argv arguments
+  // Also push argument values onto stack and store addresses into argv_addresses
+  char delimiter[2] = " ";
+  char* argv_addresses[200];
+  char* save_ptr;
+  char* token = strtok_r(file_name, delimiter, &save_ptr);
+  int count = 0;
+  int args_size = 0;
+
+  while (token != NULL) {
+    args_size += strlen(token) + 1;
+    if_.esp = if_.esp - strlen(token) + 1;
+    memcpy(if_.esp, token, strlen(token) + 1);
+    argv_addresses[count] = if_.esp ;
+    count++;
+    token = strtok_r(NULL, delimiter, &save_ptr);
+  }
+
+  // Add in null sentinel to argv_address
+  argv_addresses[count] = NULL;
+
+  // Add in stack alignment calculated by the other argument pointers, argc, etc. and with the values of arguments
+  int total_stack_size = args_size + (count * 4) + 12;
+  int alignment_needed = total_stack_size % 16;
+  if (alignment_needed != 0) {
+    if_.esp = if_.esp - (16 - alignment_needed);
+  }
+
+  // Assign count to argc
+  int argc = count;
+
+  // Add in pointers to elements inside argv onto stack including null sentinel
+  if_.esp = if_.esp - (count * 4) - 4;
+  memcpy(if_.esp, argv_addresses, argc * sizeof(char*));
+
+  // Add in pointer to argv onto stack
+  if_.esp = if_.esp - 4;
+  memcpy(if_.esp, (char***)(if_.esp + 4), sizeof(char *));
+
+  // Add in argc onto stack
+  if_.esp = if_.esp - 4;
+  memcpy(if_.esp, &argc, sizeof(int));
+
+  // Add null pointer onto stack to act as fake return address
+  if_.esp = if_.esp - 4;
+  int fake = 0;
+  memcpy(if_.esp, (void*) &fake, sizeof(void*));
+
+  /* End of Task 1: Argument Passing */
+
   /* Clean up. Exit on failure or jump to userspace */
   palloc_free_page(file_name);
   /* Task 2: Process Control Syscalls */
@@ -402,6 +454,8 @@ bool load(const char* file_name, void (**eip)(void), void** esp) {
         break;
     }
   }
+
+
 
   /* Set up stack. */
   if (!setup_stack(esp))
