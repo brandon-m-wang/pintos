@@ -5,6 +5,7 @@
 #include "threads/interrupt.h"
 #include "threads/thread.h"
 #include "userprog/process.h"
+#include <stdlib.h>
 
 static void syscall_handler(struct intr_frame*);
 
@@ -54,19 +55,19 @@ static void syscall_handler(struct intr_frame* f UNUSED) {
   } else if (args[0] == SYS_CREATE) {
 
     lock_acquire(&file_syscalls_lock);
-    f->eax = create(args[1], args[2]);
+    f->eax = create((char*)args[1], args[2]);
     lock_release(&file_syscalls_lock);
 
   } else if (args[0] == SYS_REMOVE) {
 
     lock_acquire(&file_syscalls_lock);
-    f->eax = remove(args[1]);
+    f->eax = remove((char*)args[1]);
     lock_release(&file_syscalls_lock);
 
   } else if (args[0] == SYS_OPEN) {
 
     lock_acquire(&file_syscalls_lock);
-    f->eax = open(args[1]);
+    f->eax = open((char*)args[1]);
     lock_release(&file_syscalls_lock);
 
   } else if (args[0] == SYS_FILESIZE) {
@@ -78,13 +79,13 @@ static void syscall_handler(struct intr_frame* f UNUSED) {
   } else if (args[0] == SYS_READ) {
 
     lock_acquire(&file_syscalls_lock);
-    f->eax = read(args[1], args[2], args[3]);
+    f->eax = read(args[1], (void*)args[2], args[3]);
     lock_release(&file_syscalls_lock);
 
   } else if (args[0] == SYS_WRITE) {
 
     lock_acquire(&file_syscalls_lock);
-    f->eax = write(args[1], args[2], args[3]);
+    f->eax = write(args[1], (void*)args[2], args[3]);
     lock_release(&file_syscalls_lock);
 
   } else if (args[0] == SYS_SEEK) {
@@ -270,10 +271,10 @@ void seek(int fd, unsigned position) {
   the file to position. Otherwise if an active_file 
   matching fd is not found, return -1.*/
   if (target_active_file != NULL) {
-    return file_seek(target_active_file->file, position);
-  } else {
-    return -1;
+    file_seek(target_active_file->file, position);
   }
+
+  // Handle Error in else ^
 }
 
 /* Returns the position of the next byte to be read or written
