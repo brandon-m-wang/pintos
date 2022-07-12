@@ -208,6 +208,7 @@ static void start_process(void* file_name_) {
   palloc_free_page(file_name);
   /* Task 2: Process Control Syscalls */
   struct thread *cur = thread_current();
+  cur->process_fields = malloc(sizeof(struct process_fields));
   if (!success) {
     cur->process_fields->process_started = 0;
     sema_up(&cur->process_fields->sem);
