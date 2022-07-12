@@ -193,6 +193,8 @@ tid_t thread_create(const char* name, int priority, thread_func* function, void*
   tid = t->tid = allocate_tid();
   /* Task 2: Process Control Syscalls */
   t->process_fields->pid = tid;
+  // Can put this here instead of init_thread, since the main thread has no use for a process_fields struct.
+  t->process_fields = malloc(sizeof(struct process_fields));
   sema_init(&t->process_fields->sem, 0);
   list_push_back(&thread_current()->children, &t->process_fields->elem);
   /* End Task 2: Process Control Syscalls */
@@ -438,7 +440,6 @@ static void init_thread(struct thread* t, const char* name, int priority) {
   t->magic = THREAD_MAGIC;
   /* Task 2: Process Control Syscalls */
   list_init(&t->children);
-  t->process_fields = malloc(sizeof(struct process_fields));
   /* End Task 2: Process Control Syscalls */
 
   old_level = intr_disable();
