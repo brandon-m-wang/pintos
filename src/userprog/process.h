@@ -27,7 +27,38 @@ struct process {
   uint32_t* pagedir;          /* Page directory. */
   char process_name[16];      /* Name of the main thread */
   struct thread* main_thread; /* Pointer to main thread */
+
+  /* START TASK: File Operation Syscalls */
+  struct list* active_files;  /* List of active_files in process. */
+  struct list* available_fds; /* List of available file descriptors for a process to assign a file when opening a file. */
+  /* END TASK: File Operation Syscalls */
 };
+
+struct process_fields {
+   struct semaphore sem;
+   struct lock lock;
+   struct list_elem elem;
+   pid_t pid;
+   int ec;
+   int process_started;
+};
+
+/* START TASK: File Operation Syscalls */
+
+/* struct active_file represents an open file in the process. */
+typedef struct active_file {
+  int fd;                /* File descriptor of file */
+  struct file* file;     /* Pointer to file struct */
+  struct list_elem elem; /* Used to represent struct as an element in a PintOS list */
+} active_file;
+
+/* struct available_fd represents a single file descriptor that can either belong to a file in the process or not. */
+typedef struct fd {
+  int fd;                /* File descriptor which does not belonging to a file yet */
+  struct list_elem elem; /* Used to represent struct as an element in a PintOS list */
+} fd;
+
+/* END TASK: File Operation Syscalls */
 
 void userprog_init(void);
 

@@ -7,6 +7,7 @@
 #include "threads/flags.h"
 #include "threads/interrupt.h"
 #include "threads/intr-stubs.h"
+#include "threads/malloc.h"
 #include "threads/palloc.h"
 #include "threads/switch.h"
 #include "threads/synch.h"
@@ -190,6 +191,13 @@ tid_t thread_create(const char* name, int priority, thread_func* function, void*
   /* Initialize thread. */
   init_thread(t, name, priority);
   tid = t->tid = allocate_tid();
+  /* Task 2: Process Control Syscalls */
+  t->process_fields = malloc(sizeof(struct process_fields));
+  t->process_fields->pid = tid;
+  sema_init(&t->process_fields->sem, 0);
+  list_init(&t->children);
+  list_push_back(&thread_current()->children, &t->elem);
+  /* End Task 2: Process Control Syscalls */
 
   /* Stack frame for kernel_thread(). */
   kf = alloc_frame(t, sizeof *kf);
