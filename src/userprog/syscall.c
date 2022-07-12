@@ -412,7 +412,7 @@ bool valid_syscall_pointer(void* ptr, size_t size) {
 void exit_with_error(uint32_t *eax, int error_code) {
   *eax = error_code;
   thread_current()->process_fields->ec = error_code;
-  thread_exit();
+  process_exit();
   NOT_REACHED();
 }
 
