@@ -134,12 +134,8 @@ static void start_process(void* file_name_) {
   // Also push argument values onto stack and store addresses into argv_addresses
   char delimiter[2] = " ";
   char* argv_addresses[200];
-<<<<<<< HEAD
   char* save_ptr;
   char* token = strtok_r(file_name, delimiter, &save_ptr);
-=======
-  char* token = strtok_r(file_name, delimiter, &file_name);
->>>>>>> 6012762 (Argument passing initial implementation)
   int count = 0;
   int args_size = 0;
 
@@ -149,11 +145,7 @@ static void start_process(void* file_name_) {
     memcpy(if_.esp, token, strlen(token) + 1);
     argv_addresses[count] = if_.esp ;
     count++;
-<<<<<<< HEAD
     token = strtok_r(NULL, delimiter, &save_ptr);
-=======
-    token = strtok_r(NULL, delimiter, &file_name);
->>>>>>> 6012762 (Argument passing initial implementation)
   }
 
   // Add in null sentinel to argv_address
@@ -214,6 +206,7 @@ static void start_process(void* file_name_) {
 
   /* Clean up. Exit on failure or jump to userspace */
   palloc_free_page(file_name);
+
   /* Task 2: Process Control Syscalls */
   struct thread *cur = thread_current();
   if (!success) {
