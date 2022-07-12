@@ -2,6 +2,7 @@
 #include <debug.h>
 #include "filesys/inode.h"
 #include "threads/malloc.h"
+#include "userprog/process.h" // Added for get_active_file(int fd)
 
 /* An open file. */
 struct file {
@@ -132,3 +133,32 @@ off_t file_tell(struct file* file) {
   ASSERT(file != NULL);
   return file->pos;
 }
+
+/* START TASK: File Operation Syscalls */
+
+/* Returns the active_file struct of the current process
+  corresponding to the given fd. Return NULL if not found */
+struct active_file* get_active_file(int fd) {
+  /* Get get the process struct of current process */
+  struct thread *main_thread = thread_current();
+  struct process *main_pcb = main_thread->pcb;
+  
+  /* Iterate through process's active_files
+    to find the file matching the fd. */
+  struct list_elem *e;
+  struct list* active_files = main_pcb->active_files;
+
+  for (e = list_begin(active_files); e != list_end (active_files); e = list_next (e)) {
+    struct active_file *temp_file = list_entry(e, struct active_file, elem);
+
+    /* Found active_file matching fd, return it. */
+    if (temp_file->fd == fd) {
+      return temp_file;
+    }
+  }
+
+  /* File not found, return null. */
+  return NULL;
+}
+
+/* END TASK: File Operation Syscalls */

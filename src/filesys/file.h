@@ -26,4 +26,10 @@ void file_seek(struct file*, off_t);
 off_t file_tell(struct file*);
 off_t file_length(struct file*);
 
+/* START TASK: File Operation Syscalls */
+
+struct active_file* get_active_file(int fd);
+
+/* END TASK: File Operation Syscalls */
+
 #endif /* filesys/file.h */

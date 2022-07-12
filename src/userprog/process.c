@@ -44,7 +44,7 @@ void userprog_init(void) {
 }
 
 /* Starts a new thread running a user program loaded from
-   FILENAME.  The new thread may be scheduled (and may even exit)
+   FILENAME. The new thread may be scheduled (and may even exit)
    before process_execute() returns.  Returns the new process's
    process id, or TID_ERROR if the thread cannot be created. */
 pid_t process_execute(const char* file_name) {
@@ -179,6 +179,30 @@ static void start_process(void* file_name_) {
   memcpy(if_.esp, (void*) &fake, sizeof(void*));
 
   /* End of Task 1: Argument Passing */
+
+  /* START TASK: File Operation Syscalls */
+
+  /* Initialize a list of 128 available file descriptors
+    from 3-130 (inclusive) because fd's 0, 1, and 2 are reserved for
+    STDIN, STDOUT, and STDERR respectively. */
+  new_pcb->available_fds = (struct list*) malloc(sizeof(struct list));
+  list_init(new_pcb->available_fds);
+
+  /* Add the file descriptors in */
+  for (int i = 3; i < 131; i++) {
+    struct fd* new_fd = (struct fd*) malloc(sizeof(struct fd));
+    struct list_elem new_elem = {NULL, NULL};
+    new_fd->fd = i;
+    new_fd->elem = new_elem;
+    list_push_back(new_pcb->available_fds, &new_elem);
+  }
+
+  /* Initialize active_files for new process.
+    active_files is a pintOS list of open files in the process */
+  new_pcb->active_files = (struct list*) malloc(sizeof(struct list));
+  list_init(new_pcb->active_files);
+
+  /* END TASK: File Operation Syscalls */
 
   /* Clean up. Exit on failure or jump to userspace */
   palloc_free_page(file_name);
@@ -383,7 +407,7 @@ bool load(const char* file_name, void (**eip)(void), void** esp) {
   off_t file_ofs;
   bool success = false;
   int i;
-
+  
   /* Allocate and activate page directory. */
   t->pcb->pagedir = pagedir_create();
   if (t->pcb->pagedir == NULL)
@@ -466,6 +490,13 @@ bool load(const char* file_name, void (**eip)(void), void** esp) {
 
   success = true;
 
+  /* START TASK: File Operation Syscalls */
+
+  /* Load is successful, deny write to the executable file. */
+  file_deny_write(file);
+
+  /* END TASK: File Operation Syscalls */
+  
 done:
   /* We arrive here whether the load is successful or not. */
   file_close(file);
