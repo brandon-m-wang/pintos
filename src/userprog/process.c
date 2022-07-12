@@ -298,6 +298,11 @@ void process_exit(void) {
   free(pcb_to_free);
 
   /* Task 2: Process Control Syscalls */
+  /* Print out program name and exit code. */
+  printf("%s: exit(%d)\n", cur->name, cur->process_fields->ec);
+  /* End Task 2: Process Control Syscalls */
+
+  /* Task 2: Process Control Syscalls */
   // Allow waiting parent to proceed
   if (cur->process_fields != NULL) {
     sema_up(&cur->process_fields->sem);

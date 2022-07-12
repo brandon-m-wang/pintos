@@ -296,6 +296,13 @@ tid_t thread_tid(void) { return thread_current()->tid; }
 void thread_exit(void) {
   ASSERT(!intr_context());
 
+  /* Task 2: Process Control Syscalls */
+  /* If it is the main thread, exit the program */
+  #ifdef USERPROG
+  process_exit();
+  #endif
+  /* End Task 2: Process Control Syscalls */
+
   /* Remove thread from all threads list, set our status to dying,
      and schedule another process.  That process will destroy us
      when it calls thread_switch_tail(). */

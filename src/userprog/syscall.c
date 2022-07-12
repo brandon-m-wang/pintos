@@ -14,6 +14,11 @@ void syscall_init(void) { intr_register_int(0x30, 3, INTR_ON, syscall_handler, "
 static void syscall_handler(struct intr_frame* f UNUSED) {
   uint32_t* args = ((uint32_t*)f->esp);
 
+  /* Verify args pointer. Exits thread if invalid. */
+  if (!valid_syscall_pointer(args, sizeof(uint32_t*))) {
+    exit_with_error(&f->eax, -1);
+  }
+
   /*
    * The following print statement, if uncommented, will print out the syscall
    * number whenever a process enters a system call. You might find it useful
@@ -51,18 +56,30 @@ static void syscall_handler(struct intr_frame* f UNUSED) {
   } else if (args[0] == SYS_WAIT) {
     f->eax = process_wait(args[1]);
   } else if (args[0] == SYS_CREATE) {
+    /* Verify char* pointer */
+    if(!valid_syscall_pointer((char*)args[0], strlen(args[0]) + 1)) {
+      exit_with_error(&f->eax, -1);
+    }
 
     lock_acquire(&file_syscalls_lock);
     f->eax = create((char*)args[1], args[2]);
     lock_release(&file_syscalls_lock);
 
   } else if (args[0] == SYS_REMOVE) {
+    /* Verify char* pointer */
+    if(!valid_syscall_pointer((char*)args[0], strlen(args[0]) + 1)) {
+      exit_with_error(&f->eax, -1);
+    }
 
     lock_acquire(&file_syscalls_lock);
     f->eax = remove((char*)args[1]);
     lock_release(&file_syscalls_lock);
 
   } else if (args[0] == SYS_OPEN) {
+    /* Verify char* pointer */
+    if(!valid_syscall_pointer((char*)args[0], strlen(args[0]) + 1)) {
+      exit_with_error(&f->eax, -1);
+    }
 
     lock_acquire(&file_syscalls_lock);
     f->eax = open((char*)args[1]);
@@ -75,12 +92,20 @@ static void syscall_handler(struct intr_frame* f UNUSED) {
     lock_release(&file_syscalls_lock);
 
   } else if (args[0] == SYS_READ) {
+    /* Verify buffer pointer */
+    if(!valid_syscall_pointer((void*)args[2], args[3])) {
+      exit_with_error(&f->eax, -1);
+    }
 
     lock_acquire(&file_syscalls_lock);
     f->eax = read(args[1], (void*)args[2], args[3]);
     lock_release(&file_syscalls_lock);
 
   } else if (args[0] == SYS_WRITE) {
+    /* Verify buffer pointer */
+    if(!valid_syscall_pointer((void*)args[2], args[3])) {
+      exit_with_error(&f->eax, -1);
+    }
 
     lock_acquire(&file_syscalls_lock);
     f->eax = write(args[1], (void*)args[2], args[3]);
@@ -355,6 +380,39 @@ struct active_file* get_active_file(int fd) {
 
   /* File not found, return null. */
   return NULL;
+}
+
+/* Returns true if pointer is entirely in user memory and
+  there exists a physical mapping to the ptr in user virtual mem.
+  Otherwise, return false. */
+bool valid_syscall_pointer(void* ptr, size_t size) {
+  /* Check for NULL pointer */
+  if (ptr == NULL) {
+    return false;
+  }
+
+  /* Check if end of pointer is in user memory */
+  bool in_user_mem_start = is_user_vaddr(ptr);
+  bool in_user_mem_end = is_user_vaddr(ptr + size);
+
+  /* Get get the process struct of current process */
+  struct thread *main_thread = thread_current();
+  struct process *main_pcb = main_thread->pcb;
+
+  /* Check if pointer has mapping from virtual memory to physical memory. */
+  void* virtual_mem_addr_start = pagedir_get_page(main_pcb->pagedir, ptr);
+  void* virtual_mem_addr_end = pagedir_get_page(main_pcb->pagedir, ptr + size);
+
+  /* If all are valid, return true. Otherwise, return false. */
+  return in_user_mem_start && in_user_mem_end && virtual_mem_addr_start != NULL && virtual_mem_addr_end != NULL;
+}
+
+/* Exits the running thread with error code error_code. */
+void exit_with_error(uint32_t *eax, int error_code) {
+  *eax = error_code;
+  thread_current()->process_fields->ec = error_code;
+  thread_exit();
+  NOT_REACHED();
 }
 
 /* END TASK: File Operation Syscalls */

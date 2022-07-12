@@ -1,6 +1,7 @@
 #ifndef USERPROG_SYSCALL_H
 #define USERPROG_SYSCALL_H
 #include <stdbool.h>
+#include <stdio.h>
 
 void syscall_init(void);
 
@@ -16,6 +17,8 @@ void seek(int fd, unsigned position);
 unsigned tell(int fd);
 void close(int fd);
 struct active_file* get_active_file(int fd);
+bool valid_syscall_pointer(void* ptr, size_t size);
+void exit_with_error(uint32_t *eax, int error_code);
 
 /* END TASK: File Operation Syscalls */
 
