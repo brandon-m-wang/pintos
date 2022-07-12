@@ -15,6 +15,7 @@ int write(int fd, const void* buffer, unsigned size);
 void seek(int fd, unsigned position);
 unsigned tell(int fd);
 void close(int fd);
+struct active_file* get_active_file(int fd);
 
 /* END TASK: File Operation Syscalls */
 

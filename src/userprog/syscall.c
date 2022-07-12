@@ -5,7 +5,7 @@
 #include "threads/interrupt.h"
 #include "threads/thread.h"
 #include "userprog/process.h"
-#include <stdlib.h>
+#include "threads/malloc.h"
 
 static void syscall_handler(struct intr_frame*);
 
@@ -23,10 +23,6 @@ static void syscall_handler(struct intr_frame* f UNUSED) {
 
   /* printf("System call number: %d\n", args[0]); */
 
-  if (args[0] == SYS_PRACTICE) {
-    f->eax = args[1]++;
-  } else if (args[0] == SYS_EXIT) {
-
   /* START TASK: File Operation Syscalls */
 
   /* Lock for File Operation Syscalls */
@@ -41,7 +37,9 @@ static void syscall_handler(struct intr_frame* f UNUSED) {
      - Error Handling
   */
 
-  if (args[0] == SYS_EXIT) {
+  if (args[0] == SYS_PRACTICE) {
+    f->eax = args[1]++;
+  } else if (args[0] == SYS_EXIT) {
     f->eax = args[1];
     thread_current()->process_fields->ec = args[1];
     printf("%s: exit(%d)\n", thread_current()->pcb->process_name, args[1]);
@@ -241,7 +239,7 @@ int write(int fd, const void* buffer, unsigned size) {
       putbuf(buffer, 300);
       buffer += 300;
     }
-    return;
+    return size;
   }
 
   /* Get the process's active_file with its file descriptor matching fd. */
@@ -332,6 +330,31 @@ void close(int fd) {
       return;
     }
   }
+}
+
+/* Returns the active_file struct of the current process
+  corresponding to the given fd. Return NULL if not found */
+struct active_file* get_active_file(int fd) {
+  /* Get get the process struct of current process */
+  struct thread *main_thread = thread_current();
+  struct process *main_pcb = main_thread->pcb;
+  
+  /* Iterate through process's active_files
+    to find the file matching the fd. */
+  struct list_elem *e;
+  struct list* active_files = main_pcb->active_files;
+
+  for (e = list_begin(active_files); e != list_end (active_files); e = list_next (e)) {
+    struct active_file *temp_file = list_entry(e, struct active_file, elem);
+
+    /* Found active_file matching fd, return it. */
+    if (temp_file->fd == fd) {
+      return temp_file;
+    }
+  }
+
+  /* File not found, return null. */
+  return NULL;
 }
 
 /* END TASK: File Operation Syscalls */
