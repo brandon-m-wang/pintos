@@ -153,7 +153,6 @@ bool create(const char* file, unsigned initial_size) {
 
   /* Call filesys_create */
   bool return_code = filesys_create(file, initial_size);
-
   return return_code;
 }
 
@@ -166,7 +165,6 @@ bool remove(const char* file) {
 
   /* Call filesys_remove() */
   bool return_code = filesys_remove(file);
-
   return return_code;
 }
 
