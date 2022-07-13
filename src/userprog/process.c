@@ -209,11 +209,6 @@ static void start_process(void* file_name_) {
 
   /* Task 2: Process Control Syscalls */
   struct thread *cur = thread_current();
-  // Create an extraneous process_fields for main thread. This ensures that we will free the resource correctly,
-  // and that setting its exit code in SYSCALL==EXIT will not err.
-  if (cur->process_fields == NULL) {
-    cur->process_fields = malloc(sizeof(struct process_fields));
-  }
   if (!success) {
     cur->process_fields->process_started = 0;
     sema_up(&cur->process_fields->sem);
@@ -320,7 +315,6 @@ void process_exit(void) {
     // useless if the parent disappears.
     free(list_entry(list_pop_front(&cur->children), struct process_fields, elem));
   }
-  free(&cur->process_fields);
   /* End Task 2: Process Control Syscalls */
   thread_exit();
 }

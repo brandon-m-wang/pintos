@@ -440,6 +440,7 @@ static void init_thread(struct thread* t, const char* name, int priority) {
   t->magic = THREAD_MAGIC;
   /* Task 2: Process Control Syscalls */
   list_init(&t->children);
+  t->process_fields = NULL;
   /* End Task 2: Process Control Syscalls */
 
   old_level = intr_disable();
