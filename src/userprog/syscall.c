@@ -16,11 +16,14 @@ static void syscall_handler(struct intr_frame*);
 
 void syscall_init(void) { intr_register_int(0x30, 3, INTR_ON, syscall_handler, "syscall"); }
 
+/* Lock for File Operation Syscalls */
+struct lock file_syscalls_lock;
+
 static void syscall_handler(struct intr_frame* f UNUSED) {
   uint32_t* args = ((uint32_t*)f->esp);
 
   /* Verify args pointer. Exits thread if invalid. */
-  if (!valid_syscall_pointer(args, sizeof(uint32_t*))) {
+  if (!valid_pointer(args, sizeof(uint32_t*))) {
     exit_with_error(&f->eax, -1);
   }
 
@@ -35,11 +38,7 @@ static void syscall_handler(struct intr_frame* f UNUSED) {
 
   /* START TASK: File Operation Syscalls */
 
-  /* Lock for File Operation Syscalls */
-  struct lock file_syscalls_lock;
   lock_init(&file_syscalls_lock);
-
-  /* END TASK: File Operation Syscalls */
 
   /* FILE SYSCALLS TODO: 
      - Exiting or terminating a process must implicitly close all its open file descriptors, as if by calling this function for each one.
@@ -65,7 +64,7 @@ static void syscall_handler(struct intr_frame* f UNUSED) {
     f->eax = process_wait(args[1]);
   } else if (args[0] == SYS_CREATE) {
     /* Verify char* pointer */
-    if(!valid_syscall_pointer((char*)args[0], strlen((char*)args[0]) + 1)) {
+    if(!valid_string((char*)args[1])) {
       exit_with_error(&f->eax, -1);
     }
 
@@ -75,7 +74,7 @@ static void syscall_handler(struct intr_frame* f UNUSED) {
 
   } else if (args[0] == SYS_REMOVE) {
     /* Verify char* pointer */
-    if(!valid_syscall_pointer((char*)args[0], strlen((char*)args[0]) + 1)) {
+    if(!valid_string((char*)args[1])) {
       exit_with_error(&f->eax, -1);
     }
 
@@ -85,7 +84,7 @@ static void syscall_handler(struct intr_frame* f UNUSED) {
 
   } else if (args[0] == SYS_OPEN) {
     /* Verify char* pointer */
-    if(!valid_syscall_pointer((char*)args[0], strlen((char*)args[0]) + 1)) {
+    if(!valid_string((char*)args[1])) {
       exit_with_error(&f->eax, -1);
     }
 
@@ -101,7 +100,7 @@ static void syscall_handler(struct intr_frame* f UNUSED) {
 
   } else if (args[0] == SYS_READ) {
     /* Verify buffer pointer */
-    if(!valid_syscall_pointer((void*)args[2], args[3])) {
+    if(!valid_pointer((void*)args[2], args[3])) {
       exit_with_error(&f->eax, -1);
     }
 
@@ -111,7 +110,7 @@ static void syscall_handler(struct intr_frame* f UNUSED) {
 
   } else if (args[0] == SYS_WRITE) {
     /* Verify buffer pointer */
-    if(!valid_syscall_pointer((void*)args[2], args[3])) {
+    if(!valid_pointer((void*)args[2], args[3])) {
       exit_with_error(&f->eax, -1);
     }
 
@@ -393,7 +392,7 @@ struct active_file* get_active_file(int fd) {
 /* Returns true if pointer is entirely in user memory and
   there exists a physical mapping to the ptr in user virtual mem.
   Otherwise, return false. */
-bool valid_syscall_pointer(void* ptr, size_t size) {
+bool valid_pointer(void* ptr, size_t size) {
   /* Check for NULL pointer */
   if (ptr == NULL) {
     return false;
@@ -413,6 +412,33 @@ bool valid_syscall_pointer(void* ptr, size_t size) {
 
   /* If all are valid, return true. Otherwise, return false. */
   return in_user_mem_start && in_user_mem_end && virtual_mem_addr_start != NULL && virtual_mem_addr_end != NULL;
+}
+
+/* Returns true if string exists in user memory and
+  if there exits a physical mapping to the ptr in user virtual mem.
+  Otherwise, return false. */
+bool valid_string(char* str) {
+  /* Check for NULL pointer and if string pointer exists in user memory.*/
+  if (str == NULL || !is_user_vaddr(str)) {
+    return false;
+  }
+
+  /* Get get the process struct of current process */
+  struct thread *main_thread = thread_current();
+  struct process *main_pcb = main_thread->pcb;
+
+  /* Get address of string in kernel memory */
+  void* kernel_string_addr = pagedir_get_page(main_pcb->pagedir, str);
+
+  if (kernel_string_addr == NULL) {
+    return false;
+  } else {
+    /* Get string length of kernel string, it is not safe to get strlen of user provided string */
+    int string_length = strlen(kernel_string_addr) + 1;
+    
+    /* Check if end of string exists in user memory and if there is a mapping to it from physical memory */
+    return is_user_vaddr(str + string_length) && pagedir_get_page(main_pcb->pagedir, str + string_length) != NULL;
+  }
 }
 
 /* Exits the running thread with error code error_code. */
