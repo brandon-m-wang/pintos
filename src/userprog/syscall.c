@@ -189,7 +189,7 @@ int open(const char* file) {
   struct process* main_pcb = main_thread->pcb;
 
   int new_fd = -1;
-  struct list* available_fds = main_pcb->available_fds;
+  struct list* available_fds = &main_pcb->available_fds;
 
   /* Check if there are any more available file descriptors.
     If none, close new file and return -1. */
@@ -199,7 +199,8 @@ int open(const char* file) {
   }
 
   /* Take out a file descriptor struct from available_fds. */
-  struct fd* opened_fd = list_entry(list_pop_front(available_fds), struct fd, elem);
+  struct list_elem* front_available_fd = list_pop_front(available_fds);
+  struct fd* opened_fd = list_entry(front_available_fd, struct fd, elem);
 
   /* Take fd value and assign it to new_fd. */
   new_fd = opened_fd->fd;
@@ -214,7 +215,7 @@ int open(const char* file) {
 
   struct list_elem new_elem = {NULL, NULL};
   new_open_file->elem = new_elem;
-  list_push_back(main_pcb->active_files, &(new_open_file->elem));
+  list_push_back(&main_pcb->active_files, &(new_open_file->elem));
 
   return new_fd;
 }
@@ -331,12 +332,12 @@ void close(int fd) {
   /* Get get the process struct of current process */
   struct thread* main_thread = thread_current();
   struct process* main_pcb = main_thread->pcb;
-  struct list* available_fds = main_pcb->available_fds;
+  struct list* available_fds = &main_pcb->available_fds;
 
   /* Iterate through process's active_files
     to find the file matching the fd. */
   struct list_elem* e;
-  struct list* active_files = main_pcb->active_files;
+  struct list* active_files = &main_pcb->active_files;
 
   for (e = list_begin(active_files); e != list_end(active_files); e = list_next(e)) {
     struct active_file* temp_file = list_entry(e, struct active_file, elem);
@@ -374,7 +375,7 @@ struct active_file* get_active_file(int fd) {
   /* Iterate through process's active_files
     to find the file matching the fd. */
   struct list_elem *e;
-  struct list* active_files = main_pcb->active_files;
+  struct list* active_files = &main_pcb->active_files;
 
   for (e = list_begin(active_files); e != list_end (active_files); e = list_next (e)) {
     struct active_file *temp_file = list_entry(e, struct active_file, elem);

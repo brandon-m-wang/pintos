@@ -29,8 +29,8 @@ struct process {
   struct thread* main_thread; /* Pointer to main thread */
 
   /* START TASK: File Operation Syscalls */
-  struct list* active_files;  /* List of active_files in process. */
-  struct list* available_fds; /* List of available file descriptors for a process to assign a file when opening a file. */
+  struct list active_files;  /* List of active_files in process. */
+  struct list available_fds; /* List of available file descriptors for a process to assign a file when opening a file. */
   /* END TASK: File Operation Syscalls */
 };
 

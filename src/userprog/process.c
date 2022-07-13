@@ -196,8 +196,7 @@ static void start_process(void* file_name_) {
   /* Initialize a list of 128 available file descriptors
     from 3-130 (inclusive) because fd's 0, 1, and 2 are reserved for
     STDIN, STDOUT, and STDERR respectively. */
-  new_pcb->available_fds = (struct list*) malloc(sizeof(struct list));
-  list_init(new_pcb->available_fds);
+  list_init(&new_pcb->available_fds);
 
   /* Add the file descriptors in */
   for (int i = 3; i < 131; i++) {
@@ -205,13 +204,12 @@ static void start_process(void* file_name_) {
     struct list_elem new_elem = {NULL, NULL};
     new_fd->fd = i;
     new_fd->elem = new_elem;
-    list_push_back(new_pcb->available_fds, &new_elem);
+    list_push_back(&new_pcb->available_fds, &new_elem);
   }
 
   /* Initialize active_files for new process.
     active_files is a pintOS list of open files in the process */
-  new_pcb->active_files = (struct list*) malloc(sizeof(struct list));
-  list_init(new_pcb->active_files);
+  list_init(&new_pcb->active_files);
 
   /* END TASK: File Operation Syscalls */
 
