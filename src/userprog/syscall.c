@@ -7,6 +7,10 @@
 #include "userprog/process.h"
 #include "threads/malloc.h"
 #include "threads/vaddr.h"
+#include "userprog/pagedir.h"
+#include <string.h>
+#include "filesys/file.h"
+#include "filesys/filesys.h"
 
 static void syscall_handler(struct intr_frame*);
 
@@ -61,7 +65,7 @@ static void syscall_handler(struct intr_frame* f UNUSED) {
     f->eax = process_wait(args[1]);
   } else if (args[0] == SYS_CREATE) {
     /* Verify char* pointer */
-    if(!valid_syscall_pointer((char*)args[0], strlen(args[0]) + 1)) {
+    if(!valid_syscall_pointer((char*)args[0], strlen((char*)args[0]) + 1)) {
       exit_with_error(&f->eax, -1);
     }
 
@@ -71,7 +75,7 @@ static void syscall_handler(struct intr_frame* f UNUSED) {
 
   } else if (args[0] == SYS_REMOVE) {
     /* Verify char* pointer */
-    if(!valid_syscall_pointer((char*)args[0], strlen(args[0]) + 1)) {
+    if(!valid_syscall_pointer((char*)args[0], strlen((char*)args[0]) + 1)) {
       exit_with_error(&f->eax, -1);
     }
 
@@ -81,7 +85,7 @@ static void syscall_handler(struct intr_frame* f UNUSED) {
 
   } else if (args[0] == SYS_OPEN) {
     /* Verify char* pointer */
-    if(!valid_syscall_pointer((char*)args[0], strlen(args[0]) + 1)) {
+    if(!valid_syscall_pointer((char*)args[0], strlen((char*)args[0]) + 1)) {
       exit_with_error(&f->eax, -1);
     }
 
@@ -261,13 +265,14 @@ int write(int fd, const void* buffer, unsigned size) {
   if (fd == 1) {
     /* The number of times putbuf will be called (writing 300 bytes at a time).
     interations = (size / 300) rounded UP to the nearest whole number. */
-    int iterations = (size + (300 - 1)) / 300;
+    // int iterations = (size + (300 - 1)) / 300;
 
     /* Write size bytes to the console */
-    for (int i = 0; i < iterations; i++) {
-      putbuf(buffer, 300);
-      buffer += 300;
-    }
+    // for (int i = 0; i < iterations; i++) {
+    //   putbuf(buffer, 300);
+    //   buffer += 300;
+    // }
+    putbuf(buffer, size);
     return size;
   }
 
