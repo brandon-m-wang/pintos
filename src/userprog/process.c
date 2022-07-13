@@ -152,6 +152,7 @@ static void start_process(void* file_name_) {
   if (success) {
     struct file* executing_file = filesys_open(token);
     file_deny_write(executing_file);
+    new_pcb->executing_file = executing_file;
   }
   /* END TASK: File Operation Syscalls */
 
@@ -226,6 +227,9 @@ static void start_process(void* file_name_) {
     active_files is a pintOS list of open files in the process. */
   list_init(&new_pcb->active_files);
 
+  /* Intitialize a lock for file syscall operations */
+  lock_init(&new_pcb->file_syscalls_lock);
+
   /* END TASK: File Operation Syscalls */
 
   /* Clean up. Exit on failure or jump to userspace */
@@ -297,6 +301,9 @@ void process_exit(void) {
     thread_exit();
     NOT_REACHED();
   }
+
+  
+  file_close(cur->pcb->executing_file);
 
   /* Destroy the current process's page directory and switch back
      to the kernel-only page directory. */

@@ -16,9 +16,6 @@ static void syscall_handler(struct intr_frame*);
 
 void syscall_init(void) { intr_register_int(0x30, 3, INTR_ON, syscall_handler, "syscall"); }
 
-/* Lock for File Operation Syscalls */
-struct lock file_syscalls_lock;
-
 static void syscall_handler(struct intr_frame* f UNUSED) {
   uint32_t* args = ((uint32_t*)f->esp);
 
@@ -38,13 +35,14 @@ static void syscall_handler(struct intr_frame* f UNUSED) {
 
   /* START TASK: File Operation Syscalls */
 
-  lock_init(&file_syscalls_lock);
-
   /* FILE SYSCALLS TODO: 
      - Exiting or terminating a process must implicitly close all its open file descriptors, as if by calling this function for each one.
      - Argument authentication
      - Error Handling
   */
+  /* Get get the process struct of current process */
+  struct thread *main_thread = thread_current();
+  struct process *main_pcb = main_thread->pcb;
 
   if (args[0] == SYS_PRACTICE) {
     f->eax = args[1] + 1;
@@ -73,9 +71,9 @@ static void syscall_handler(struct intr_frame* f UNUSED) {
       exit_with_error(&f->eax, -1);
     }
 
-    lock_acquire(&file_syscalls_lock);
+    lock_acquire(&main_pcb->file_syscalls_lock);
     f->eax = create((char*)args[1], args[2]);
-    lock_release(&file_syscalls_lock);
+    lock_release(&main_pcb->file_syscalls_lock);
 
   } else if (args[0] == SYS_REMOVE) {
     /* Verify char* pointer */
@@ -83,9 +81,9 @@ static void syscall_handler(struct intr_frame* f UNUSED) {
       exit_with_error(&f->eax, -1);
     }
 
-    lock_acquire(&file_syscalls_lock);
+    lock_acquire(&main_pcb->file_syscalls_lock);
     f->eax = remove((char*)args[1]);
-    lock_release(&file_syscalls_lock);
+    lock_release(&main_pcb->file_syscalls_lock);
 
   } else if (args[0] == SYS_OPEN) {
     /* Verify char* pointer */
@@ -93,15 +91,15 @@ static void syscall_handler(struct intr_frame* f UNUSED) {
       exit_with_error(&f->eax, -1);
     }
 
-    lock_acquire(&file_syscalls_lock);
+    lock_acquire(&main_pcb->file_syscalls_lock);
     f->eax = open((char*)args[1]);
-    lock_release(&file_syscalls_lock);
+    lock_release(&main_pcb->file_syscalls_lock);
 
   } else if (args[0] == SYS_FILESIZE) {
 
-    lock_acquire(&file_syscalls_lock);
+    lock_acquire(&main_pcb->file_syscalls_lock);
     f->eax = filesize(args[1]);
-    lock_release(&file_syscalls_lock);
+    lock_release(&main_pcb->file_syscalls_lock);
 
   } else if (args[0] == SYS_READ) {
     /* Verify buffer pointer */
@@ -109,9 +107,9 @@ static void syscall_handler(struct intr_frame* f UNUSED) {
       exit_with_error(&f->eax, -1);
     }
 
-    lock_acquire(&file_syscalls_lock);
+    lock_acquire(&main_pcb->file_syscalls_lock);
     f->eax = read(args[1], (void*)args[2], args[3]);
-    lock_release(&file_syscalls_lock);
+    lock_release(&main_pcb->file_syscalls_lock);
 
   } else if (args[0] == SYS_WRITE) {
     /* Verify buffer pointer */
@@ -119,27 +117,27 @@ static void syscall_handler(struct intr_frame* f UNUSED) {
       exit_with_error(&f->eax, -1);
     }
 
-    lock_acquire(&file_syscalls_lock);
+    lock_acquire(&main_pcb->file_syscalls_lock);
     f->eax = write(args[1], (void*)args[2], args[3]);
-    lock_release(&file_syscalls_lock);
+    lock_release(&main_pcb->file_syscalls_lock);
 
   } else if (args[0] == SYS_SEEK) {
 
-    lock_acquire(&file_syscalls_lock);
+    lock_acquire(&main_pcb->file_syscalls_lock);
     seek(args[1], args[2]);
-    lock_release(&file_syscalls_lock);
+    lock_release(&main_pcb->file_syscalls_lock);
 
   } else if (args[0] == SYS_TELL) {
 
-    lock_acquire(&file_syscalls_lock);
+    lock_acquire(&main_pcb->file_syscalls_lock);
     f->eax = tell(args[1]);
-    lock_release(&file_syscalls_lock);
+    lock_release(&main_pcb->file_syscalls_lock);
 
   } else if (args[0] == SYS_CLOSE) {
 
-    lock_acquire(&file_syscalls_lock);
+    lock_acquire(&main_pcb->file_syscalls_lock);
     close(args[1]);
-    lock_release(&file_syscalls_lock);
+    lock_release(&main_pcb->file_syscalls_lock);
 
   }
 }
