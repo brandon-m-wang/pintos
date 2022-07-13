@@ -40,9 +40,8 @@ static void syscall_handler(struct intr_frame* f UNUSED) {
      - Argument authentication
      - Error Handling
   */
-  /* Get get the process struct of current process */
-  struct thread *main_thread = thread_current();
-  struct process *main_pcb = main_thread->pcb;
+
+  struct process *main_pcb = process_current();
 
   if (args[0] == SYS_PRACTICE) {
     f->eax = args[1] + 1;
@@ -444,6 +443,14 @@ void exit_with_error(uint32_t *eax, int error_code) {
   thread_current()->process_fields->ec = error_code;
   process_exit();
   NOT_REACHED();
+}
+
+/* Get the current process struct. */
+struct process* process_current(void) {
+  /* Get get the process struct of current process */
+  struct thread *main_thread = thread_current();
+  struct process *main_pcb = main_thread->pcb;
+  return main_pcb;
 }
 
 /* END TASK: File Operation Syscalls */

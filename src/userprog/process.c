@@ -148,12 +148,14 @@ static void start_process(void* file_name_) {
   }
 
   /* START TASK: File Operation Syscalls */
-  /* Deny writing to executing file */
+
+  /* Deny writing to executing file if load was successful. */
   if (success) {
     struct file* executing_file = filesys_open(token);
     file_deny_write(executing_file);
     new_pcb->executing_file = executing_file;
   }
+  
   /* END TASK: File Operation Syscalls */
 
   /* Task 1: Argument Passing */

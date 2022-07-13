@@ -20,6 +20,7 @@ struct active_file* get_active_file(int fd);
 bool valid_pointer(void* ptr, size_t size);
 bool valid_string(char* str);
 void exit_with_error(uint32_t *eax, int error_code);
+struct process* process_current(void);
 
 /* END TASK: File Operation Syscalls */
 
