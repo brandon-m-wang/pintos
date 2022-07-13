@@ -138,6 +138,15 @@ static void start_process(void* file_name_) {
     free(pcb_to_free);
   }
 
+  if (!success) {
+    palloc_free_page(file_name);
+
+    struct thread *cur = thread_current();
+    cur->process_fields->process_started = 0;
+    sema_up(&cur->process_fields->sem);
+    thread_exit();
+  }
+
   /* START TASK: File Operation Syscalls */
   /* Deny writing to executing file */
   if (success) {
