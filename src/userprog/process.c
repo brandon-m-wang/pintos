@@ -141,11 +141,11 @@ static void start_process(void* file_name_) {
 
   while (token != NULL) {
     args_size += strlen(token) + 1;
-    if_.esp = if_.esp - (strlen(token) + 1);
+    if_.esp = if_.esp - strlen(token) + 1;
     memcpy(if_.esp, token, strlen(token) + 1);
     argv_addresses[count] = if_.esp ;
     count++;
-    token = strtok_r(NULL, delimiter, &save_ptr);
+    token = strtok_r(NULL, delimiter, &file_name);
   }
 
   // Add in null sentinel to argv_address
@@ -163,12 +163,11 @@ static void start_process(void* file_name_) {
 
   // Add in pointers to elements inside argv onto stack including null sentinel
   if_.esp = if_.esp - (count * 4) - 4;
-  memcpy(if_.esp, argv_addresses, (argc+1) * sizeof(char*));
+  memcpy(if_.esp, argv_addresses, argc * sizeof(char*));
 
   // Add in pointer to argv onto stack
-  char ** ptrArgvList = (char **) if_.esp;
   if_.esp = if_.esp - 4;
-  memcpy(if_.esp, &ptrArgvList, sizeof(char **));
+  memcpy(if_.esp, (char***)(if_.esp + 4), sizeof(char *));
 
   // Add in argc onto stack
   if_.esp = if_.esp - 4;
@@ -180,30 +179,6 @@ static void start_process(void* file_name_) {
   memcpy(if_.esp, (void*) &fake, sizeof(void*));
 
   /* End of Task 1: Argument Passing */
-
-  /* START TASK: File Operation Syscalls */
-
-  /* Initialize a list of 128 available file descriptors
-    from 3-130 (inclusive) because fd's 0, 1, and 2 are reserved for
-    STDIN, STDOUT, and STDERR respectively. */
-  new_pcb->available_fds = (struct list*) malloc(sizeof(struct list));
-  list_init(new_pcb->available_fds);
-
-  /* Add the file descriptors in */
-  for (int i = 3; i < 131; i++) {
-    struct fd* new_fd = (struct fd*) malloc(sizeof(struct fd));
-    struct list_elem new_elem = {NULL, NULL};
-    new_fd->fd = i;
-    new_fd->elem = new_elem;
-    list_push_back(new_pcb->available_fds, &new_elem);
-  }
-
-  /* Initialize active_files for new process.
-    active_files is a pintOS list of open files in the process */
-  new_pcb->active_files = (struct list*) malloc(sizeof(struct list));
-  list_init(new_pcb->active_files);
-
-  /* END TASK: File Operation Syscalls */
 
   /* Clean up. Exit on failure or jump to userspace */
   palloc_free_page(file_name);
