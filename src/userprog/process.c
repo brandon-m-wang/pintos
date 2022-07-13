@@ -58,8 +58,13 @@ pid_t process_execute(const char* file_name) {
     return TID_ERROR;
   strlcpy(fn_copy, file_name, PGSIZE);
 
+  /* Get first token to pass into thread_create */
+  size_t name_len = strcspn(file_name, " ") + 1;
+  char * name = malloc(name_len * sizeof (char));
+  strlcpy(name, file_name, name_len);
+
   /* Create a new thread to execute FILE_NAME. */
-  tid = thread_create(file_name, PRI_DEFAULT, start_process, fn_copy);
+  tid = thread_create(name, PRI_DEFAULT, start_process, fn_copy);
   if (tid == TID_ERROR)
     palloc_free_page(fn_copy);
 
@@ -109,13 +114,18 @@ static void start_process(void* file_name_) {
     strlcpy(t->pcb->process_name, t->name, sizeof t->name);
   }
 
+  char delimiter[2] = " ";
+  char* argv_addresses[200];
+  char* save_ptr;
+  char* token = strtok_r(file_name, delimiter, &save_ptr);
+
   /* Initialize interrupt frame and load executable. */
   if (success) {
     memset(&if_, 0, sizeof if_);
     if_.gs = if_.fs = if_.es = if_.ds = if_.ss = SEL_UDSEG;
     if_.cs = SEL_UCSEG;
     if_.eflags = FLAG_IF | FLAG_MBS;
-    success = load(file_name, &if_.eip, &if_.esp);
+    success = load(token, &if_.eip, &if_.esp);
   }
 
   /* Handle failure with succesful PCB malloc. Must free the PCB */
@@ -132,10 +142,10 @@ static void start_process(void* file_name_) {
 
   // Use strtok() to split the filename argument into the argc and argv arguments
   // Also push argument values onto stack and store addresses into argv_addresses
-  char delimiter[2] = " ";
-  char* argv_addresses[200];
-  char* save_ptr;
-  char* token = strtok_r(file_name, delimiter, &save_ptr);
+  // char delimiter[2] = " ";
+  // char* argv_addresses[200];
+  // char* save_ptr;
+  // char* token = strtok_r(file_name, delimiter, &save_ptr);
   int count = 0;
   int args_size = 0;
 
