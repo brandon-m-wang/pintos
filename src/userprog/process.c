@@ -198,13 +198,11 @@ static void start_process(void* file_name_) {
     STDIN, STDOUT, and STDERR respectively. */
   list_init(&new_pcb->available_fds);
 
-  /* Add the file descriptors in */
+  /* Add the 128 file descriptors in */
   for (int i = 3; i < 131; i++) {
     struct fd* new_fd = (struct fd*) malloc(sizeof(struct fd));
-    struct list_elem new_elem = {NULL, NULL};
     new_fd->fd = i;
-    new_fd->elem = new_elem;
-    list_push_back(&new_pcb->available_fds, &new_elem);
+    list_push_back(&new_pcb->available_fds, &new_fd->elem);
   }
 
   /* Initialize active_files for new process.

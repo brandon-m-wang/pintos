@@ -59,6 +59,11 @@ static void syscall_handler(struct intr_frame* f UNUSED) {
   } else if (args[0] == SYS_HALT) {
     shutdown_power_off();
   } else if (args[0] == SYS_EXEC) {
+    /* Verify char* pointer */
+    if(!valid_string((char*)args[1])) {
+      exit_with_error(&f->eax, -1);
+    }
+    
     f->eax = process_execute((char *)args[1]);
   } else if (args[0] == SYS_WAIT) {
     f->eax = process_wait(args[1]);
