@@ -404,32 +404,13 @@ bool valid_pointer(void* ptr, size_t size) {
     return false;
   }
 
-  /* Check if pointer points into kernel memory */
-  if (ptr >= PHYS_BASE) {
-    return false;
-  }
-
   /* Get get the process struct of current process */
   struct thread *main_thread = thread_current();
   struct process *main_pcb = main_thread->pcb;
 
-  /* Check if start of pointer is in user memory
+  /* Check if start and end of pointer is in user memory
     and has physical mapping from user to physical memory. */
-  bool in_user_mem_start = is_user_vaddr(ptr);
-  void* virtual_mem_addr_start = pagedir_get_page(main_pcb->pagedir, ptr);
-  if (!in_user_mem_start || virtual_mem_addr_start == NULL) {
-    return false;
-  }
-
-  /* Check if end of pointer is in user memory
-    and has physical mapping from user to physical memory. */
-  bool in_user_mem_end = is_user_vaddr(ptr + size);
-  void* virtual_mem_addr_end = pagedir_get_page(main_pcb->pagedir, ptr + size);
-  if (!in_user_mem_end || virtual_mem_addr_end == NULL) {
-    return false;
-  }
-
-  return true;
+  return is_user_vaddr(ptr) && is_user_vaddr(ptr + size) && pagedir_get_page(main_pcb->pagedir, ptr) != NULL && pagedir_get_page(main_pcb->pagedir, ptr + size) != NULL;
 }
 
 /* Returns true if string exists in user memory and
