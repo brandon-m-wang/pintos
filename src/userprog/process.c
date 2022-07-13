@@ -248,7 +248,7 @@ int process_wait(pid_t child_pid) {
   struct list_elem *iter;
   for (iter = list_begin(children); iter != list_end(children); iter = list_next(iter)) {
     curr_process_fields = list_entry(iter, struct process_fields, elem);
-    if (child_process_fields->pid == child_pid) {
+    if (curr_process_fields->pid == child_pid) {
       child_process_fields = curr_process_fields;
     }
   }
