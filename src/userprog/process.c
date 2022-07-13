@@ -138,6 +138,14 @@ static void start_process(void* file_name_) {
     free(pcb_to_free);
   }
 
+  /* START TASK: File Operation Syscalls */
+  /* Deny writing to executing file */
+  if (success) {
+    struct file* executing_file = filesys_open(token);
+    file_deny_write(executing_file);
+  }
+  /* END TASK: File Operation Syscalls */
+
   /* Task 1: Argument Passing */
 
   // Use strtok() to split the filename argument into the argc and argv arguments
@@ -501,13 +509,6 @@ bool load(const char* file_name, void (**eip)(void), void** esp) {
   *eip = (void (*)(void))ehdr.e_entry;
 
   success = true;
-
-  /* START TASK: File Operation Syscalls */
-
-  /* Load is successful, deny write to the executable file. */
-  file_deny_write(file);
-
-  /* END TASK: File Operation Syscalls */
   
 done:
   /* We arrive here whether the load is successful or not. */
