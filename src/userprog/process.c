@@ -206,6 +206,7 @@ static void start_process(void* file_name_) {
 
   /* Clean up. Exit on failure or jump to userspace */
   palloc_free_page(file_name);
+
   /* Task 2: Process Control Syscalls */
   struct thread *cur = thread_current();
   if (!success) {
@@ -247,7 +248,7 @@ int process_wait(pid_t child_pid) {
   struct list_elem *iter;
   for (iter = list_begin(children); iter != list_end(children); iter = list_next(iter)) {
     curr_process_fields = list_entry(iter, struct process_fields, elem);
-    if (child_process_fields->pid == child_pid) {
+    if (curr_process_fields->pid == child_pid) {
       child_process_fields = curr_process_fields;
     }
   }
@@ -298,6 +299,11 @@ void process_exit(void) {
   free(pcb_to_free);
 
   /* Task 2: Process Control Syscalls */
+  /* Print out program name and exit code. */
+  printf("%s: exit(%d)\n", cur->name, cur->process_fields->ec);
+  /* End Task 2: Process Control Syscalls */
+
+  /* Task 2: Process Control Syscalls */
   // Allow waiting parent to proceed
   if (cur->process_fields != NULL) {
     sema_up(&cur->process_fields->sem);
@@ -309,7 +315,6 @@ void process_exit(void) {
     // useless if the parent disappears.
     free(list_entry(list_pop_front(&cur->children), struct process_fields, elem));
   }
-  free(&cur->process_fields);
   /* End Task 2: Process Control Syscalls */
   thread_exit();
 }
