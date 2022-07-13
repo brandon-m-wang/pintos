@@ -206,7 +206,7 @@ static void start_process(void* file_name_) {
   }
 
   /* Initialize active_files for new process.
-    active_files is a pintOS list of open files in the process */
+    active_files is a pintOS list of open files in the process. */
   list_init(&new_pcb->active_files);
 
   /* END TASK: File Operation Syscalls */
