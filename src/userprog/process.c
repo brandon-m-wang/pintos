@@ -59,12 +59,12 @@ pid_t process_execute(const char* file_name) {
   strlcpy(fn_copy, file_name, PGSIZE);
 
   /* Get first token to pass into thread_create */
-  size_t name_len = strcspn(file_name, " ") + 1;
-  char * name = malloc(name_len * sizeof (char));
-  strlcpy(name, file_name, name_len);
+  size_t nameLength = strcspn(file_name, " ") + 1;
+  char* name_token = malloc(sizeof(char) * nameLength);
+  strlcpy(name_token, file_name, nameLength);
 
   /* Create a new thread to execute FILE_NAME. */
-  tid = thread_create(name, PRI_DEFAULT, start_process, fn_copy);
+  tid = thread_create(name_token, PRI_DEFAULT, start_process, fn_copy);
   if (tid == TID_ERROR)
     palloc_free_page(fn_copy);
 
