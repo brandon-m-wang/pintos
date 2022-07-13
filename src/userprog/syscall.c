@@ -280,7 +280,6 @@ int write(int fd, const void* buffer, unsigned size) {
   Otherwise if an active_file matching fd is not found, return -1.*/
   if (target_active_file != NULL) {
     return file_write(target_active_file->file, buffer, size);
-    ;
   } else {
     return -1;
   }
