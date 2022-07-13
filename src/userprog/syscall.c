@@ -274,7 +274,7 @@ int write(int fd, const void* buffer, unsigned size) {
   /* Get the process's active_file with its file descriptor matching fd. */
   struct active_file* target_active_file = get_active_file(fd);
 
-  /* Check if active_file matching fd is found. 
+  /* Check if active_file matching fd is found.
   If it is found, then write size bytes from the buffer 
   into the file and return the number of bytes written. 
   Otherwise if an active_file matching fd is not found, return -1.*/
