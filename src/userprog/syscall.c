@@ -404,20 +404,32 @@ bool valid_pointer(void* ptr, size_t size) {
     return false;
   }
 
-  /* Check if end of pointer is in user memory */
-  bool in_user_mem_start = is_user_vaddr(ptr);
-  bool in_user_mem_end = is_user_vaddr(ptr + size);
+  /* Check if pointer points into kernel memory */
+  if (ptr >= PHYS_BASE) {
+    return false;
+  }
 
   /* Get get the process struct of current process */
   struct thread *main_thread = thread_current();
   struct process *main_pcb = main_thread->pcb;
 
-  /* Check if pointer has mapping from virtual memory to physical memory. */
+  /* Check if start of pointer is in user memory
+    and has physical mapping from user to physical memory. */
+  bool in_user_mem_start = is_user_vaddr(ptr);
   void* virtual_mem_addr_start = pagedir_get_page(main_pcb->pagedir, ptr);
-  void* virtual_mem_addr_end = pagedir_get_page(main_pcb->pagedir, ptr + size);
+  if (!in_user_mem_start || virtual_mem_addr_start == NULL) {
+    return false;
+  }
 
-  /* If all are valid, return true. Otherwise, return false. */
-  return in_user_mem_start && in_user_mem_end && virtual_mem_addr_start != NULL && virtual_mem_addr_end != NULL;
+  /* Check if end of pointer is in user memory
+    and has physical mapping from user to physical memory. */
+  bool in_user_mem_end = is_user_vaddr(ptr + size);
+  void* virtual_mem_addr_end = pagedir_get_page(main_pcb->pagedir, ptr + size);
+  if (!in_user_mem_end || virtual_mem_addr_end == NULL) {
+    return false;
+  }
+
+  return true;
 }
 
 /* Returns true if string exists in user memory and
@@ -439,7 +451,7 @@ bool valid_string(char* str) {
   if (kernel_string_addr == NULL) {
     return false;
   } else {
-    /* Get string length of kernel string, it is not safe to get strlen of user provided string */
+    /* Get string length of kernel string, it is not safe to get strlen of user provided string. */
     int string_length = strlen(kernel_string_addr) + 1;
     
     /* Check if end of string exists in user memory and if there is a mapping to it from physical memory */
