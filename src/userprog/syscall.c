@@ -262,15 +262,7 @@ int read(int fd, void* buffer, unsigned size) {
 int write(int fd, const void* buffer, unsigned size) {
   /* Check if fd == 1, in other words, the console. */
   if (fd == 1) {
-    /* The number of times putbuf will be called (writing 300 bytes at a time).
-    interations = (size / 300) rounded UP to the nearest whole number. */
-    // int iterations = (size + (300 - 1)) / 300;
-
     /* Write size bytes to the console */
-    // for (int i = 0; i < iterations; i++) {
-    //   putbuf(buffer, 300);
-    //   buffer += 300;
-    // }
     putbuf(buffer, size);
     return size;
   }
