@@ -295,8 +295,6 @@ void seek(int fd, unsigned position) {
   if (target_active_file != NULL) {
     file_seek(target_active_file->file, position);
   }
-
-  // Handle Error in else ^
 }
 
 /* Returns the position of the next byte to be read or written
