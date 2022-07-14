@@ -19,6 +19,7 @@
 #include "threads/synch.h"
 #include "threads/thread.h"
 #include "threads/vaddr.h"
+#include "syscall.h"
 
 static thread_func start_process NO_RETURN;
 static bool load(const char* file_name, void (**eip)(void), void** esp);
@@ -155,7 +156,7 @@ static void start_process(void* file_name_) {
     file_deny_write(executing_file);
     new_pcb->executing_file = executing_file;
   }
-  
+
   /* END TASK: File Operation Syscalls */
 
   /* Task 1: Argument Passing */
@@ -304,8 +305,54 @@ void process_exit(void) {
     NOT_REACHED();
   }
 
+  /* START TASK: File Operation Syscalls */
+
+  /* Close all files the process has open. */
+
+  /* Get the main process struct. */
+  struct process *main_pcb = process_current();
   
+  /* Iterate through process's active_files
+    to find the file matching the fd. */
+  struct list_elem *e;
+  struct list* active_files = &main_pcb->active_files;
+
+  /* Initialize a list of occupied_fds, which will be used for storing the file descriptors currently in use. */
+  struct list occupied_fds;
+  list_init(&occupied_fds);
+
+  /* Find all file descriptors currently in use and put them in occupied_fds. */
+  for (e = list_begin(active_files); e != list_end (active_files); e = list_next (e)) {
+    struct active_file *temp_file = list_entry(e, struct active_file, elem);
+    struct fd* new_fd = (struct fd*) malloc(sizeof(struct fd));
+    new_fd->fd = temp_file->fd;
+    list_push_back(&occupied_fds, &new_fd->elem);
+  }
+
+  /* Iterate through all occupied_fds and close the file correlating to each one. */
+  while(!list_empty(&occupied_fds)) {
+    struct list_elem* temp_fd_elem = list_pop_front(&occupied_fds);
+    struct fd* temp_fd = list_entry(temp_fd_elem, struct fd, elem);
+
+    /* Call close from syscall.h */
+    close(temp_fd->fd);
+
+    /* Free temp_fd from occupied_fds */
+    free(temp_fd);
+  }
+
+  /* Iterate through all available_fds and free them. */
+  while(!list_empty(&main_pcb->available_fds)) {
+    struct list_elem* temp_fd_elem = list_pop_front(&main_pcb->available_fds);
+    struct fd* temp_fd = list_entry(temp_fd_elem, struct fd, elem);
+    free(temp_fd);
+  }
+
+  
+  /* Close executing file. */
   file_close(cur->pcb->executing_file);
+
+  /* END TASK: File Operation Syscalls */
 
   /* Destroy the current process's page directory and switch back
      to the kernel-only page directory. */

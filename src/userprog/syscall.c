@@ -24,22 +24,6 @@ static void syscall_handler(struct intr_frame* f UNUSED) {
     exit_with_error(&f->eax, -1);
   }
 
-  /*
-   * The following print statement, if uncommented, will print out the syscall
-   * number whenever a process enters a system call. You might find it useful
-   * when debugging. It will cause tests to fail, however, so you should not
-   * include it in your final submission.
-   */
-
-  /* printf("System call number: %d\n", args[0]); */
-
-  /* START TASK: File Operation Syscalls */
-
-  /* FILE SYSCALLS TODO: 
-     - Exiting or terminating a process must implicitly close all its open file descriptors, as if by calling this function for each one.
-     - Argument authentication
-     - Error Handling
-  */
 
  /* Get the main process struct. */
   struct process *main_pcb = process_current();
@@ -283,7 +267,7 @@ int write(int fd, const void* buffer, unsigned size) {
 
 /* Changes the next byte to be read or written in open file 
   fd to position, expressed in bytes from the beginning of 
-  the file. Return -1 if file with fd is not found. */
+  the file. */
 void seek(int fd, unsigned position) {
   /* Get the process's active_file with its file descriptor matching fd. */
   struct active_file* target_active_file = get_active_file(fd);
