@@ -19,14 +19,12 @@ wait-simple wait-twice wait-killed wait-bad-pid multi-recurse           \
 multi-child-fd rox-simple rox-child rox-multichild bad-read bad-write   \
 bad-read2 bad-write2 bad-jump bad-jump2 iloveos practice stack-align-1  \
 stack-align-2 stack-align-3 stack-align-4 floating-point fp-simul       \
-fp-asm fp-syscall fp-kernel-e fp-init seek-basic tell-basic)
+fp-asm fp-syscall fp-kernel-e fp-init)
 
 tests/userprog_PROGS = $(tests/userprog_TESTS) $(addprefix \
 tests/userprog/,child-simple child-args child-bad child-close \
 child-rox compute-e fp-asm-helper)
 
-tests/userprog/tell-basic_SRC = tests/userprog/tell-basic.c tests/main.c
-tests/userprog/seek-basic_SRC = tests/userprog/seek-basic.c tests/main.c
 tests/userprog/iloveos_SRC = tests/userprog/iloveos.c tests/main.c
 tests/userprog/practice_SRC = tests/userprog/practice.c tests/main.c
 tests/userprog/do-nothing_SRC = tests/userprog/do-nothing.c
@@ -143,8 +141,6 @@ tests/userprog/args-many_ARGS = a b c d e f g h i j k l m n o p q r s t u v
 tests/userprog/args-dbl-space_ARGS = two  spaces!
 tests/userprog/multi-recurse_ARGS = 15
 
-tests/userprog/tell-basic_PUTFILES += tests/userprog/sample.txt
-tests/userprog/seek-basic_PUTFILES += tests/userprog/sample.txt
 tests/userprog/open-normal_PUTFILES += tests/userprog/sample.txt
 tests/userprog/open-boundary_PUTFILES += tests/userprog/sample.txt
 tests/userprog/open-twice_PUTFILES += tests/userprog/sample.txt
