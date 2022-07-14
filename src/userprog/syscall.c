@@ -57,7 +57,7 @@ static void syscall_handler(struct intr_frame* f UNUSED) {
     shutdown_power_off();
   } else if (args[0] == SYS_EXEC) {
     /* Verify char* pointer */
-    if(!valid_string((char*)args[1])) {
+    if(!valid_pointer((void*) args + 4, sizeof(uint32_t*)) || !valid_string((char*)args[1])) {
       exit_with_error(&f->eax, -1);
     }
     
