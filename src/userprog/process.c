@@ -141,7 +141,6 @@ static void start_process(void* file_name_) {
 
   if (!success) {
     palloc_free_page(file_name);
-
     struct thread *cur = thread_current();
     cur->process_fields->process_started = 0;
     sema_up(&cur->process_fields->sem);
@@ -312,8 +311,7 @@ void process_exit(void) {
   /* Get the main process struct. */
   struct process *main_pcb = process_current();
   
-  /* Iterate through process's active_files
-    to find the file matching the fd. */
+  /* Iterate through process's active_files to find all open files. */
   struct list_elem *e;
   struct list* active_files = &main_pcb->active_files;
 
