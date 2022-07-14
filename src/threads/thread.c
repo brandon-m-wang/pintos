@@ -213,6 +213,10 @@ tid_t thread_create(const char* name, int priority, thread_func* function, void*
   sf = alloc_frame(t, sizeof *sf);
   sf->eip = switch_entry;
   sf->ebp = 0;
+  uint8_t fpu_temp_buf[108];
+  asm("fsave (%0)" : : "g"(&fpu_temp_buf));
+  asm("fsave (%0)" : : "g"(&sf->FPU_state));
+  asm("frstor (%0)" : : "g"(&fpu_temp_buf));
 
   /* Add to run queue. */
   thread_unblock(t);

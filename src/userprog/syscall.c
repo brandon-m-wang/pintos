@@ -11,6 +11,7 @@
 #include <string.h>
 #include "filesys/file.h"
 #include "filesys/filesys.h"
+#include "lib/float.h"
 
 static void syscall_handler(struct intr_frame*);
 
@@ -23,7 +24,6 @@ static void syscall_handler(struct intr_frame* f UNUSED) {
   if (!valid_pointer(args, sizeof(uint32_t*))) {
     exit_with_error(&f->eax, -1);
   }
-
 
  /* Get the main process struct. */
   struct process *main_pcb = process_current();
@@ -122,6 +122,13 @@ static void syscall_handler(struct intr_frame* f UNUSED) {
     close(args[1]);
     lock_release(&main_pcb->file_syscalls_lock);
 
+  } else if (args[0] == SYS_COMPUTE_E) {
+    /* Verify args pointer */
+    if(!valid_pointer((void*) args + 4, sizeof(uint32_t*))) {
+      exit_with_error(&f->eax, -1);
+    }
+    
+    f->eax = sys_sum_to_e((int)args[1]);
   }
 }
 

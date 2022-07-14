@@ -126,6 +126,12 @@ static void start_process(void* file_name_) {
     if_.gs = if_.fs = if_.es = if_.ds = if_.ss = SEL_UDSEG;
     if_.cs = SEL_UCSEG;
     if_.eflags = FLAG_IF | FLAG_MBS;
+
+    uint8_t fpu_temp_buf[108];
+    asm("fsave (%0)" : : "g"(&fpu_temp_buf));
+    asm("fsave (%0)" : : "g"(&if_.FPU_state));
+    asm("frstor (%0)" : : "g"(&fpu_temp_buf));
+    
     success = load(token, &if_.eip, &if_.esp);
   }
 
