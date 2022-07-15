@@ -5,7 +5,7 @@
 #include "tests/main.h"
 
 void test_main(void) {
-  char * file_name = "sample.txt";
+  char* file_name = "sample.txt";
   int position;
   int handle;
   char buffer[512];
@@ -15,19 +15,19 @@ void test_main(void) {
   for (int i = 0; i < 5; i++) {
     handle = open(file_name);
     if (handle < 2) {
-        fail("first open() returned %d", handle);
+      fail("first open() returned %d", handle);
     }
 
     /* Check if output matches */
     ret_code = read(handle, buffer, 25);
     if (ret_code == -1) {
-        fail("Failed read.");
+      fail("Failed read.");
     }
 
     position = tell(handle);
 
     if (position != 25) {
-        fail("Failed to give correct position of frist file read/write pointer.");
+      fail("Failed to give correct position of frist file read/write pointer.");
     }
   }
 }

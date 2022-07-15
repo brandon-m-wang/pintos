@@ -25,8 +25,8 @@ static void syscall_handler(struct intr_frame* f UNUSED) {
     exit_with_error(&f->eax, -1);
   }
 
- /* Get the main process struct. */
-  struct process *main_pcb = process_current();
+  /* Get the main process struct. */
+  struct process* main_pcb = process_current();
 
   if (args[0] == SYS_PRACTICE) {
     f->eax = args[1] + 1;
@@ -42,15 +42,15 @@ static void syscall_handler(struct intr_frame* f UNUSED) {
     shutdown_power_off();
   } else if (args[0] == SYS_EXEC) {
     /* Verify char* pointer */
-    if(!valid_pointer((void*) args + 4, sizeof(uint32_t*)) || !valid_string((char*)args[1])) {
+    if (!valid_pointer((void*)args + 4, sizeof(uint32_t*)) || !valid_string((char*)args[1])) {
       exit_with_error(&f->eax, -1);
     }
-    f->eax = process_execute((char *)args[1]);
+    f->eax = process_execute((char*)args[1]);
   } else if (args[0] == SYS_WAIT) {
     f->eax = process_wait(args[1]);
   } else if (args[0] == SYS_CREATE) {
     /* Verify char* pointer */
-    if(!valid_pointer((void*) args + 4, sizeof(uint32_t*)) || !valid_string((char*)args[1])) {
+    if (!valid_pointer((void*)args + 4, sizeof(uint32_t*)) || !valid_string((char*)args[1])) {
       exit_with_error(&f->eax, -1);
     }
 
@@ -60,7 +60,7 @@ static void syscall_handler(struct intr_frame* f UNUSED) {
 
   } else if (args[0] == SYS_REMOVE) {
     /* Verify char* pointer */
-    if(!valid_pointer((void*) args + 4, sizeof(uint32_t*)) || !valid_string((char*)args[1])) {
+    if (!valid_pointer((void*)args + 4, sizeof(uint32_t*)) || !valid_string((char*)args[1])) {
       exit_with_error(&f->eax, -1);
     }
 
@@ -70,7 +70,7 @@ static void syscall_handler(struct intr_frame* f UNUSED) {
 
   } else if (args[0] == SYS_OPEN) {
     /* Verify char* pointer */
-    if(!valid_pointer((void*) args + 4, sizeof(uint32_t*)) || !valid_string((char*)args[1])) {
+    if (!valid_pointer((void*)args + 4, sizeof(uint32_t*)) || !valid_string((char*)args[1])) {
       exit_with_error(&f->eax, -1);
     }
 
@@ -86,7 +86,7 @@ static void syscall_handler(struct intr_frame* f UNUSED) {
 
   } else if (args[0] == SYS_READ) {
     /* Verify buffer pointer */
-    if(!valid_pointer((void*)args[2], args[3])) {
+    if (!valid_pointer((void*)args[2], args[3])) {
       exit_with_error(&f->eax, -1);
     }
 
@@ -96,7 +96,7 @@ static void syscall_handler(struct intr_frame* f UNUSED) {
 
   } else if (args[0] == SYS_WRITE) {
     /* Verify buffer pointer */
-    if(!valid_pointer((void*)args[2], args[3])) {
+    if (!valid_pointer((void*)args[2], args[3])) {
       exit_with_error(&f->eax, -1);
     }
 
@@ -124,10 +124,10 @@ static void syscall_handler(struct intr_frame* f UNUSED) {
 
   } else if (args[0] == SYS_COMPUTE_E) {
     /* Verify args pointer */
-    if(!valid_pointer((void*) args + 4, sizeof(uint32_t*))) {
+    if (!valid_pointer((void*)args + 4, sizeof(uint32_t*))) {
       exit_with_error(&f->eax, -1);
     }
-    
+
     f->eax = sys_sum_to_e((int)args[1]);
   }
 }
@@ -176,7 +176,7 @@ int open(const char* file) {
   }
 
   /* Get the main process struct. */
-  struct process *main_pcb = process_current();
+  struct process* main_pcb = process_current();
 
   int new_fd = -1;
   struct list* available_fds = &main_pcb->available_fds;
@@ -310,7 +310,7 @@ unsigned tell(int fd) {
 /* Closes file descriptor fd. */
 void close(int fd) {
   /* Get the main process struct. */
-  struct process *main_pcb = process_current();
+  struct process* main_pcb = process_current();
   struct list* available_fds = &main_pcb->available_fds;
 
   /* Iterate through process's active_files
@@ -348,15 +348,15 @@ void close(int fd) {
   corresponding to the given fd. Return NULL if not found */
 struct active_file* get_active_file(int fd) {
   /* Get the main process struct. */
-  struct process *main_pcb = process_current();
-  
+  struct process* main_pcb = process_current();
+
   /* Iterate through process's active_files
     to find the file matching the fd. */
-  struct list_elem *e;
+  struct list_elem* e;
   struct list* active_files = &main_pcb->active_files;
 
-  for (e = list_begin(active_files); e != list_end (active_files); e = list_next (e)) {
-    struct active_file *temp_file = list_entry(e, struct active_file, elem);
+  for (e = list_begin(active_files); e != list_end(active_files); e = list_next(e)) {
+    struct active_file* temp_file = list_entry(e, struct active_file, elem);
 
     /* Found active_file matching fd, return it. */
     if (temp_file->fd == fd) {
@@ -378,11 +378,13 @@ bool valid_pointer(void* ptr, size_t size) {
   }
 
   /* Get the main process struct. */
-  struct process *main_pcb = process_current();
+  struct process* main_pcb = process_current();
 
   /* Check if start and end of pointer is in user memory
     and has physical mapping from user to physical memory. */
-  return is_user_vaddr(ptr) && is_user_vaddr(ptr + size) && pagedir_get_page(main_pcb->pagedir, ptr) != NULL && pagedir_get_page(main_pcb->pagedir, ptr + size) != NULL;
+  return is_user_vaddr(ptr) && is_user_vaddr(ptr + size) &&
+         pagedir_get_page(main_pcb->pagedir, ptr) != NULL &&
+         pagedir_get_page(main_pcb->pagedir, ptr + size) != NULL;
 }
 
 /* Returns true if string exists in user memory and
@@ -395,7 +397,7 @@ bool valid_string(char* str) {
   }
 
   /* Get the main process struct. */
-  struct process *main_pcb = process_current();
+  struct process* main_pcb = process_current();
 
   /* Get address of string in kernel memory */
   void* kernel_string_addr = pagedir_get_page(main_pcb->pagedir, str);
@@ -405,14 +407,15 @@ bool valid_string(char* str) {
   } else {
     /* Get string length of kernel string, it is not safe to get strlen of user provided string. */
     int string_length = strlen(kernel_string_addr) + 1;
-    
+
     /* Check if end of string exists in user memory and if there is a mapping to it from physical memory */
-    return is_user_vaddr(str + string_length) && pagedir_get_page(main_pcb->pagedir, str + string_length) != NULL;
+    return is_user_vaddr(str + string_length) &&
+           pagedir_get_page(main_pcb->pagedir, str + string_length) != NULL;
   }
 }
 
 /* Exits the running thread with error code error_code. */
-void exit_with_error(uint32_t *eax, int error_code) {
+void exit_with_error(uint32_t* eax, int error_code) {
   *eax = error_code;
   thread_current()->process_fields->ec = error_code;
   process_exit();
@@ -422,8 +425,8 @@ void exit_with_error(uint32_t *eax, int error_code) {
 /* Get the current process struct. */
 struct process* process_current(void) {
   /* Get get the process struct of current process through the current thread. */
-  struct thread *main_thread = thread_current();
-  struct process *main_pcb = main_thread->pcb;
+  struct thread* main_thread = thread_current();
+  struct process* main_pcb = main_thread->pcb;
   return main_pcb;
 }
 

@@ -7,12 +7,12 @@
 
 void test_main(void) {
 
-  char * file_name = "sample.txt";
+  char* file_name = "sample.txt";
   int handle;
   char buffer[512];
   int ret_code;
-  char *correct_output = "Electronic";
-  char *correct_output2 = "\"Amazing";
+  char* correct_output = "Electronic";
+  char* correct_output2 = "\"Amazing";
   int handle2;
   int ret_code2;
   char buffer2[512];

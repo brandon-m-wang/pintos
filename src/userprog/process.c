@@ -71,11 +71,12 @@ pid_t process_execute(const char* file_name) {
 
   /* Task 2: Process Control Syscalls */
   // Retrieve the created child's process_fields struct
-  struct thread *cur = thread_current();
-  struct process_fields *child_process_fields;
-  struct process_fields *curr_process_fields;
-  struct list_elem *iter;
-  for (iter = list_begin(&cur->children); iter != list_end(&cur->children); iter = list_next(iter)) {
+  struct thread* cur = thread_current();
+  struct process_fields* child_process_fields;
+  struct process_fields* curr_process_fields;
+  struct list_elem* iter;
+  for (iter = list_begin(&cur->children); iter != list_end(&cur->children);
+       iter = list_next(iter)) {
     curr_process_fields = list_entry(iter, struct process_fields, elem);
     if (curr_process_fields->pid == tid) {
       child_process_fields = curr_process_fields;
@@ -132,7 +133,7 @@ static void start_process(void* file_name_) {
     asm("fsave (%0)" : : "g"(&fpu_temp_buf));
     asm("fsave (%0)" : : "g"(&if_.FPU_state));
     asm("frstor (%0)" : : "g"(&fpu_temp_buf));
-    
+
     success = load(token, &if_.eip, &if_.esp);
   }
 
@@ -149,7 +150,7 @@ static void start_process(void* file_name_) {
   /* If file not found, exit */
   if (!success) {
     palloc_free_page(file_name);
-    struct thread *cur = thread_current();
+    struct thread* cur = thread_current();
     cur->process_fields->process_started = 0;
     sema_up(&cur->process_fields->sem);
     thread_exit();
@@ -177,7 +178,7 @@ static void start_process(void* file_name_) {
     args_size += strlen(token) + 1;
     if_.esp = if_.esp - (strlen(token) + 1);
     memcpy(if_.esp, token, strlen(token) + 1);
-    argv_addresses[count] = if_.esp ;
+    argv_addresses[count] = if_.esp;
     count++;
     token = strtok_r(NULL, delimiter, &save_ptr);
   }
@@ -197,12 +198,12 @@ static void start_process(void* file_name_) {
 
   // Add in pointers to elements inside argv onto stack including null sentinel
   if_.esp = if_.esp - (count * 4) - 4;
-  memcpy(if_.esp, argv_addresses, (argc+1) * sizeof(char*));
+  memcpy(if_.esp, argv_addresses, (argc + 1) * sizeof(char*));
 
   // Add in pointer to argv onto stack
-  char ** ptrArgvList = (char **) if_.esp;
+  char** ptrArgvList = (char**)if_.esp;
   if_.esp = if_.esp - 4;
-  memcpy(if_.esp, &ptrArgvList, sizeof(char **));
+  memcpy(if_.esp, &ptrArgvList, sizeof(char**));
 
   // Add in argc onto stack
   if_.esp = if_.esp - 4;
@@ -211,7 +212,7 @@ static void start_process(void* file_name_) {
   // Add null pointer onto stack to act as fake return address
   if_.esp = if_.esp - 4;
   int fake = 0;
-  memcpy(if_.esp, (void*) &fake, sizeof(void*));
+  memcpy(if_.esp, (void*)&fake, sizeof(void*));
 
   /* End of Task 1: Argument Passing */
 
@@ -224,7 +225,7 @@ static void start_process(void* file_name_) {
 
   /* Add the 128 file descriptors in */
   for (int i = 3; i < 131; i++) {
-    struct fd* new_fd = (struct fd*) malloc(sizeof(struct fd));
+    struct fd* new_fd = (struct fd*)malloc(sizeof(struct fd));
     new_fd->fd = i;
     list_push_back(&new_pcb->available_fds, &new_fd->elem);
   }
@@ -242,7 +243,7 @@ static void start_process(void* file_name_) {
   palloc_free_page(file_name);
 
   /* Task 2: Process Control Syscalls */
-  struct thread *cur = thread_current();
+  struct thread* cur = thread_current();
   if (!success) {
     cur->process_fields->process_started = 0;
     sema_up(&cur->process_fields->sem);
@@ -252,7 +253,7 @@ static void start_process(void* file_name_) {
   cur->process_fields->process_started = 1;
   sema_up(&cur->process_fields->sem);
   /* End Task 2: Process Control Syscalls */
-  
+
   /* Start the user process by simulating a return from an
      interrupt, implemented by intr_exit (in
      threads/intr-stubs.S).  Because intr_exit takes all of its
@@ -275,11 +276,11 @@ static void start_process(void* file_name_) {
 int process_wait(pid_t child_pid) {
   /* Task 2: Process Control Syscalls */
   int exit_code;
-  struct thread *parent_thread = thread_current();
-  struct list *children = &parent_thread->children;
-  struct process_fields *child_process_fields = NULL;
-  struct process_fields *curr_process_fields;
-  struct list_elem *iter;
+  struct thread* parent_thread = thread_current();
+  struct list* children = &parent_thread->children;
+  struct process_fields* child_process_fields = NULL;
+  struct process_fields* curr_process_fields;
+  struct list_elem* iter;
   for (iter = list_begin(children); iter != list_end(children); iter = list_next(iter)) {
     curr_process_fields = list_entry(iter, struct process_fields, elem);
     if (curr_process_fields->pid == child_pid) {
@@ -313,10 +314,10 @@ void process_exit(void) {
   /* Close all files the process has open. */
 
   /* Get the main process struct. */
-  struct process *main_pcb = process_current();
-  
+  struct process* main_pcb = process_current();
+
   /* Iterate through process's active_files to find all open files. */
-  struct list_elem *e;
+  struct list_elem* e;
   struct list* active_files = &main_pcb->active_files;
 
   /* Initialize a list of occupied_fds, which will be used for storing the file descriptors currently in use. */
@@ -324,15 +325,15 @@ void process_exit(void) {
   list_init(&occupied_fds);
 
   /* Find all file descriptors currently in use and put them in occupied_fds. */
-  for (e = list_begin(active_files); e != list_end (active_files); e = list_next (e)) {
-    struct active_file *temp_file = list_entry(e, struct active_file, elem);
-    struct fd* new_fd = (struct fd*) malloc(sizeof(struct fd));
+  for (e = list_begin(active_files); e != list_end(active_files); e = list_next(e)) {
+    struct active_file* temp_file = list_entry(e, struct active_file, elem);
+    struct fd* new_fd = (struct fd*)malloc(sizeof(struct fd));
     new_fd->fd = temp_file->fd;
     list_push_back(&occupied_fds, &new_fd->elem);
   }
 
   /* Iterate through all occupied_fds and close the file correlating to each one. */
-  while(!list_empty(&occupied_fds)) {
+  while (!list_empty(&occupied_fds)) {
     struct list_elem* temp_fd_elem = list_pop_front(&occupied_fds);
     struct fd* temp_fd = list_entry(temp_fd_elem, struct fd, elem);
 
@@ -344,13 +345,12 @@ void process_exit(void) {
   }
 
   /* Iterate through all available_fds and free them. */
-  while(!list_empty(&main_pcb->available_fds)) {
+  while (!list_empty(&main_pcb->available_fds)) {
     struct list_elem* temp_fd_elem = list_pop_front(&main_pcb->available_fds);
     struct fd* temp_fd = list_entry(temp_fd_elem, struct fd, elem);
     free(temp_fd);
   }
 
-  
   /* Close executing file. */
   file_close(cur->pcb->executing_file);
 
@@ -494,7 +494,7 @@ bool load(const char* file_name, void (**eip)(void), void** esp) {
   off_t file_ofs;
   bool success = false;
   int i;
-  
+
   /* Allocate and activate page directory. */
   t->pcb->pagedir = pagedir_create();
   if (t->pcb->pagedir == NULL)
@@ -566,8 +566,6 @@ bool load(const char* file_name, void (**eip)(void), void** esp) {
     }
   }
 
-
-
   /* Set up stack. */
   if (!setup_stack(esp))
     goto done;
@@ -576,7 +574,7 @@ bool load(const char* file_name, void (**eip)(void), void** esp) {
   *eip = (void (*)(void))ehdr.e_entry;
 
   success = true;
-  
+
 done:
   /* We arrive here whether the load is successful or not. */
   file_close(file);
