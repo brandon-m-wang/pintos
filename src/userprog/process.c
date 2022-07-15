@@ -115,6 +115,7 @@ static void start_process(void* file_name_) {
     strlcpy(t->pcb->process_name, t->name, sizeof t->name);
   }
 
+  /* Get program name from file_name and pass into load */
   char delimiter[2] = " ";
   char* argv_addresses[200];
   char* save_ptr;
@@ -145,6 +146,7 @@ static void start_process(void* file_name_) {
     free(pcb_to_free);
   }
 
+  /* If file not found, exit */
   if (!success) {
     palloc_free_page(file_name);
     struct thread *cur = thread_current();
@@ -168,10 +170,6 @@ static void start_process(void* file_name_) {
 
   // Use strtok() to split the filename argument into the argc and argv arguments
   // Also push argument values onto stack and store addresses into argv_addresses
-  // char delimiter[2] = " ";
-  // char* argv_addresses[200];
-  // char* save_ptr;
-  // char* token = strtok_r(file_name, delimiter, &save_ptr);
   int count = 0;
   int args_size = 0;
 
