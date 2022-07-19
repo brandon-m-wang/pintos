@@ -97,8 +97,6 @@ int main(void) {
   malloc_init();
   paging_init();
 
-  asm volatile("fninit" : : :);
-
   /* Segmentation. */
 #ifdef USERPROG
   tss_init();

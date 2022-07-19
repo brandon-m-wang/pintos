@@ -7,7 +7,6 @@
 #include "threads/flags.h"
 #include "threads/interrupt.h"
 #include "threads/intr-stubs.h"
-#include "threads/malloc.h"
 #include "threads/palloc.h"
 #include "threads/switch.h"
 #include "threads/synch.h"
@@ -191,13 +190,6 @@ tid_t thread_create(const char* name, int priority, thread_func* function, void*
   /* Initialize thread. */
   init_thread(t, name, priority);
   tid = t->tid = allocate_tid();
-  /* Task 2: Process Control Syscalls */
-  // Can put this here instead of init_thread, can't malloc in init_thread.
-  t->process_fields = malloc(sizeof(struct process_fields));
-  t->process_fields->pid = tid;
-  sema_init(&t->process_fields->sem, 0);
-  list_push_back(&thread_current()->children, &t->process_fields->elem);
-  /* End Task 2: Process Control Syscalls */
 
   /* Stack frame for kernel_thread(). */
   kf = alloc_frame(t, sizeof *kf);
@@ -213,10 +205,6 @@ tid_t thread_create(const char* name, int priority, thread_func* function, void*
   sf = alloc_frame(t, sizeof *sf);
   sf->eip = switch_entry;
   sf->ebp = 0;
-  uint8_t fpu_temp_buf[108];
-  asm("fsave (%0)" : : "g"(&fpu_temp_buf));
-  asm("fsave (%0)" : : "g"(&sf->FPU_state));
-  asm("frstor (%0)" : : "g"(&fpu_temp_buf));
 
   /* Add to run queue. */
   thread_unblock(t);
@@ -442,10 +430,6 @@ static void init_thread(struct thread* t, const char* name, int priority) {
   t->priority = priority;
   t->pcb = NULL;
   t->magic = THREAD_MAGIC;
-  /* Task 2: Process Control Syscalls */
-  list_init(&t->children);
-  t->process_fields = NULL;
-  /* End Task 2: Process Control Syscalls */
 
   old_level = intr_disable();
   list_push_back(&all_list, &t->allelem);
