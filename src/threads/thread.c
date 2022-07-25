@@ -28,6 +28,9 @@ static struct list fifo_ready_list;
    when they are first scheduled and removed when they exit. */
 static struct list all_list;
 
+/* List of all sleeping threads. */
+struct list sleeping_threads;
+
 /* Idle thread. */
 static struct thread* idle_thread;
 
@@ -115,6 +118,9 @@ void thread_init(void) {
   init_thread(initial_thread, "main", PRI_DEFAULT);
   initial_thread->status = THREAD_RUNNING;
   initial_thread->tid = allocate_tid();
+
+  /* Initialize sleeping_threads */
+  list_init(&sleeping_threads);
 }
 
 /* Starts preemptive thread scheduling by enabling interrupts.
@@ -136,6 +142,7 @@ void thread_start(void) {
    Thus, this function runs in an external interrupt context. */
 void thread_tick(void) {
   struct thread* t = thread_current();
+  int64_t time = timer_ticks();
 
   /* Update statistics. */
   if (t == idle_thread)
@@ -147,8 +154,29 @@ void thread_tick(void) {
   else
     kernel_ticks++;
 
+  /* Iterate through sleeping_threads. */
+  struct list_elem *e;
+  bool yield_on_intr = false;
+
+  for (e = list_begin(&sleeping_threads); e != list_end (&sleeping_threads); e = list_next (e)) {
+    struct thread *sleeping_thread = list_entry(e, struct thread, sleep_elem);
+
+    /* If thread is done sleeping, then remove it from sleeping_threads
+      and unblock it. Otherwise, stop iterating. */
+    if (sleeping_thread->time_to_wake <= time) {
+      /* If sleeping thread's priority is higher than current thread, yield current thread on return. */
+      if (sleeping_thread->effective_priority > t->effective_priority) {
+        yield_on_intr = true;
+      }
+      list_remove(&sleeping_thread->sleep_elem);
+      thread_unblock(sleeping_thread);
+    } else {
+      break;
+    }
+  }
+
   /* Enforce preemption. */
-  if (++thread_ticks >= TIME_SLICE)
+  if (++thread_ticks >= TIME_SLICE || yield_on_intr)
     intr_yield_on_return();
 }
 
