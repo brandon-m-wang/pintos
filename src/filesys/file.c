@@ -2,7 +2,6 @@
 #include <debug.h>
 #include "filesys/inode.h"
 #include "threads/malloc.h"
-#include "userprog/process.h" // Added for get_active_file(int fd)
 
 /* An open file. */
 struct file {

@@ -7,7 +7,6 @@
 #include "threads/flags.h"
 #include "threads/interrupt.h"
 #include "threads/intr-stubs.h"
-#include "threads/malloc.h"
 #include "threads/palloc.h"
 #include "threads/switch.h"
 #include "threads/synch.h"
@@ -28,6 +27,9 @@ struct list ready_list;
 /* List of all processes.  Processes are added to this list
    when they are first scheduled and removed when they exit. */
 static struct list all_list;
+
+/* List of all sleeping threads. */
+struct list sleeping_threads;
 
 /* Idle thread. */
 static struct thread* idle_thread;
@@ -116,6 +118,9 @@ void thread_init(void) {
   init_thread(initial_thread, "main", PRI_DEFAULT);
   initial_thread->status = THREAD_RUNNING;
   initial_thread->tid = allocate_tid();
+
+  /* Initialize sleeping_threads */
+  list_init(&sleeping_threads);
 }
 
 /* Starts preemptive thread scheduling by enabling interrupts.
@@ -137,6 +142,7 @@ void thread_start(void) {
    Thus, this function runs in an external interrupt context. */
 void thread_tick(void) {
   struct thread* t = thread_current();
+  int64_t time = timer_ticks();
 
   /* Update statistics. */
   if (t == idle_thread)
@@ -148,8 +154,29 @@ void thread_tick(void) {
   else
     kernel_ticks++;
 
+  /* Iterate through sleeping_threads. */
+  struct list_elem *e;
+  bool yield_on_intr = false;
+
+  for (e = list_begin(&sleeping_threads); e != list_end (&sleeping_threads); e = list_next (e)) {
+    struct thread *sleeping_thread = list_entry(e, struct thread, sleep_elem);
+
+    /* If thread is done sleeping, then remove it from sleeping_threads
+      and unblock it. Otherwise, stop iterating. */
+    if (sleeping_thread->time_to_wake <= time) {
+      /* If sleeping thread's priority is higher than current thread, yield current thread on return. */
+      if (sleeping_thread->effective_priority > t->effective_priority) {
+        yield_on_intr = true;
+      }
+      list_remove(&sleeping_thread->sleep_elem);
+      thread_unblock(sleeping_thread);
+    } else {
+      break;
+    }
+  }
+
   /* Enforce preemption. */
-  if (++thread_ticks >= TIME_SLICE)
+  if (++thread_ticks >= TIME_SLICE || yield_on_intr)
     intr_yield_on_return();
 }
 
@@ -191,13 +218,6 @@ tid_t thread_create(const char* name, int priority, thread_func* function, void*
   /* Initialize thread. */
   init_thread(t, name, priority);
   tid = t->tid = allocate_tid();
-  /* Task 2: Process Control Syscalls */
-  // Can put this here instead of init_thread, can't malloc in init_thread.
-  t->process_fields = malloc(sizeof(struct process_fields));
-  t->process_fields->pid = tid;
-  sema_init(&t->process_fields->sem, 0);
-  list_push_back(&thread_current()->children, &t->process_fields->elem);
-  /* End Task 2: Process Control Syscalls */
 
   /* Stack frame for kernel_thread(). */
   kf = alloc_frame(t, sizeof *kf);
@@ -213,10 +233,6 @@ tid_t thread_create(const char* name, int priority, thread_func* function, void*
   sf = alloc_frame(t, sizeof *sf);
   sf->eip = switch_entry;
   sf->ebp = 0;
-  uint8_t fpu_temp_buf[108];
-  asm("fsave (%0)" : : "g"(&fpu_temp_buf));
-  asm("fsave (%0)" : : "g"(&sf->FPU_state));
-  asm("frstor (%0)" : : "g"(&fpu_temp_buf));
 
   /* Add to run queue. */
   thread_unblock(t);
@@ -486,10 +502,6 @@ static void init_thread(struct thread* t, const char* name, int priority) {
   /* End Strict Priority Scheduler */
   t->pcb = NULL;
   t->magic = THREAD_MAGIC;
-  /* Task 2: Process Control Syscalls */
-  list_init(&t->children);
-  t->process_fields = NULL;
-  /* End Task 2: Process Control Syscalls */
 
   old_level = intr_disable();
   list_push_back(&all_list, &t->allelem);

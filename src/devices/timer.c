@@ -29,6 +29,7 @@ static bool too_many_loops(unsigned loops);
 static void busy_wait(int64_t loops);
 static void real_time_sleep(int64_t num, int32_t denom);
 static void real_time_delay(int64_t num, int32_t denom);
+bool time_to_wake_comp(const struct list_elem *l1, const struct list_elem *l2, void *aux);
 
 /* Sets up the timer to interrupt TIMER_FREQ times per second,
    and registers the corresponding interrupt. */
@@ -76,11 +77,33 @@ int64_t timer_elapsed(int64_t then) { return timer_ticks() - then; }
 /* Sleeps for approximately TICKS timer ticks.  Interrupts must
    be turned on. */
 void timer_sleep(int64_t ticks) {
-  int64_t start = timer_ticks();
+  /* Do nothing if ticks is negative */
+  if (ticks < 0) {
+    return;
+  }
 
-  ASSERT(intr_get_level() == INTR_ON);
-  while (timer_elapsed(start) < ticks)
-    thread_yield();
+  int64_t start = timer_ticks();
+  struct thread *cur = thread_current();
+  /* Disable interrupts and save old interrupt level. */
+  enum intr_level old_level;
+  old_level = intr_disable();
+
+  /* Insert current thread into sleeping_threads. */
+  cur->time_to_wake = start + ticks;
+  list_insert_ordered(&sleeping_threads, &cur->sleep_elem, time_to_wake_comp, NULL);
+
+  /* Put current thread to sleep. */
+  thread_block();
+
+  /* Restore interrupt level */
+  intr_set_level(old_level);
+}
+
+/* Comparator for a struct thread's time_to_wake. */
+bool time_to_wake_comp(const struct list_elem *l1, const struct list_elem *l2, void *aux) {
+  struct thread *t1 = list_entry(l1, struct thread, sleep_elem);
+  struct thread *t2 = list_entry(l2, struct thread, sleep_elem);
+  return t1->time_to_wake < t2->time_to_wake;
 }
 
 /* Sleeps for approximately MS milliseconds.  Interrupts must be

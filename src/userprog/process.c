@@ -19,8 +19,8 @@
 #include "threads/synch.h"
 #include "threads/thread.h"
 #include "threads/vaddr.h"
-#include "syscall.h"
 
+static struct semaphore temporary;
 static thread_func start_process NO_RETURN;
 static bool load(const char* file_name, void (**eip)(void), void** esp);
 
@@ -45,13 +45,14 @@ void userprog_init(void) {
 }
 
 /* Starts a new thread running a user program loaded from
-   FILENAME. The new thread may be scheduled (and may even exit)
+   FILENAME.  The new thread may be scheduled (and may even exit)
    before process_execute() returns.  Returns the new process's
    process id, or TID_ERROR if the thread cannot be created. */
 pid_t process_execute(const char* file_name) {
   char* fn_copy;
   tid_t tid;
 
+  sema_init(&temporary, 0);
   /* Make a copy of FILE_NAME.
      Otherwise there's a race between the caller and load(). */
   fn_copy = palloc_get_page(0);
@@ -59,37 +60,11 @@ pid_t process_execute(const char* file_name) {
     return TID_ERROR;
   strlcpy(fn_copy, file_name, PGSIZE);
 
-  /* Get first token to pass into thread_create */
-  size_t nameLength = strcspn(file_name, " ") + 1;
-  char* name_token = malloc(sizeof(char) * nameLength);
-  strlcpy(name_token, file_name, nameLength);
-
   /* Create a new thread to execute FILE_NAME. */
-  tid = thread_create(name_token, PRI_DEFAULT, start_process, fn_copy);
+  tid = thread_create(file_name, PRI_DEFAULT, start_process, fn_copy);
   if (tid == TID_ERROR)
     palloc_free_page(fn_copy);
-
-  /* Task 2: Process Control Syscalls */
-  // Retrieve the created child's process_fields struct
-  struct thread* cur = thread_current();
-  struct process_fields* child_process_fields;
-  struct process_fields* curr_process_fields;
-  struct list_elem* iter;
-  for (iter = list_begin(&cur->children); iter != list_end(&cur->children);
-       iter = list_next(iter)) {
-    curr_process_fields = list_entry(iter, struct process_fields, elem);
-    if (curr_process_fields->pid == tid) {
-      child_process_fields = curr_process_fields;
-    }
-  }
-  // Sema down so that start_process can reach a conclusion before
-  // proceeding with error checking.
-  sema_down(&child_process_fields->sem);
-  if (child_process_fields->process_started == 1) {
-    return tid;
-  }
-  return TID_ERROR;
-  /* End Task 2: Process Control Syscalls */
+  return tid;
 }
 
 /* A thread function that loads a user process and starts it
@@ -116,25 +91,13 @@ static void start_process(void* file_name_) {
     strlcpy(t->pcb->process_name, t->name, sizeof t->name);
   }
 
-  /* Get program name from file_name and pass into load */
-  char delimiter[2] = " ";
-  char* argv_addresses[200];
-  char* save_ptr;
-  char* token = strtok_r(file_name, delimiter, &save_ptr);
-
   /* Initialize interrupt frame and load executable. */
   if (success) {
     memset(&if_, 0, sizeof if_);
     if_.gs = if_.fs = if_.es = if_.ds = if_.ss = SEL_UDSEG;
     if_.cs = SEL_UCSEG;
     if_.eflags = FLAG_IF | FLAG_MBS;
-
-    uint8_t fpu_temp_buf[108];
-    asm("fsave (%0)" : : "g"(&fpu_temp_buf));
-    asm("fsave (%0)" : : "g"(&if_.FPU_state));
-    asm("frstor (%0)" : : "g"(&fpu_temp_buf));
-
-    success = load(token, &if_.eip, &if_.esp);
+    success = load(file_name, &if_.eip, &if_.esp);
   }
 
   /* Handle failure with succesful PCB malloc. Must free the PCB */
@@ -147,112 +110,12 @@ static void start_process(void* file_name_) {
     free(pcb_to_free);
   }
 
-  /* If file not found, exit */
-  if (!success) {
-    palloc_free_page(file_name);
-    struct thread* cur = thread_current();
-    cur->process_fields->process_started = 0;
-    sema_up(&cur->process_fields->sem);
-    thread_exit();
-  }
-
-  /* START TASK: File Operation Syscalls */
-
-  /* Deny writing to executing file if load was successful. */
-  if (success) {
-    struct file* executing_file = filesys_open(token);
-    file_deny_write(executing_file);
-    new_pcb->executing_file = executing_file;
-  }
-
-  /* END TASK: File Operation Syscalls */
-
-  /* Task 1: Argument Passing */
-
-  // Use strtok() to split the filename argument into the argc and argv arguments
-  // Also push argument values onto stack and store addresses into argv_addresses
-  int count = 0;
-  int args_size = 0;
-
-  while (token != NULL) {
-    args_size += strlen(token) + 1;
-    if_.esp = if_.esp - (strlen(token) + 1);
-    memcpy(if_.esp, token, strlen(token) + 1);
-    argv_addresses[count] = if_.esp;
-    count++;
-    token = strtok_r(NULL, delimiter, &save_ptr);
-  }
-
-  // Add in null sentinel to argv_address
-  argv_addresses[count] = NULL;
-
-  // Add in stack alignment calculated by the other argument pointers, argc, etc. and with the values of arguments
-  int total_stack_size = args_size + (count * 4) + 12;
-  int alignment_needed = total_stack_size % 16;
-  if (alignment_needed != 0) {
-    if_.esp = if_.esp - (16 - alignment_needed);
-  }
-
-  // Assign count to argc
-  int argc = count;
-
-  // Add in pointers to elements inside argv onto stack including null sentinel
-  if_.esp = if_.esp - (count * 4) - 4;
-  memcpy(if_.esp, argv_addresses, (argc + 1) * sizeof(char*));
-
-  // Add in pointer to argv onto stack
-  char** ptrArgvList = (char**)if_.esp;
-  if_.esp = if_.esp - 4;
-  memcpy(if_.esp, &ptrArgvList, sizeof(char**));
-
-  // Add in argc onto stack
-  if_.esp = if_.esp - 4;
-  memcpy(if_.esp, &argc, sizeof(int));
-
-  // Add null pointer onto stack to act as fake return address
-  if_.esp = if_.esp - 4;
-  int fake = 0;
-  memcpy(if_.esp, (void*)&fake, sizeof(void*));
-
-  /* End of Task 1: Argument Passing */
-
-  /* START TASK: File Operation Syscalls */
-
-  /* Initialize a list of 128 available file descriptors
-    from 3-130 (inclusive) because fd's 0, 1, and 2 are reserved for
-    STDIN, STDOUT, and STDERR respectively. */
-  list_init(&new_pcb->available_fds);
-
-  /* Add the 128 file descriptors in */
-  for (int i = 3; i < 131; i++) {
-    struct fd* new_fd = (struct fd*)malloc(sizeof(struct fd));
-    new_fd->fd = i;
-    list_push_back(&new_pcb->available_fds, &new_fd->elem);
-  }
-
-  /* Initialize active_files for new process.
-    active_files is a pintOS list of open files in the process. */
-  list_init(&new_pcb->active_files);
-
-  /* Intitialize a lock for file syscall operations */
-  lock_init(&new_pcb->file_syscalls_lock);
-
-  /* END TASK: File Operation Syscalls */
-
   /* Clean up. Exit on failure or jump to userspace */
   palloc_free_page(file_name);
-
-  /* Task 2: Process Control Syscalls */
-  struct thread* cur = thread_current();
   if (!success) {
-    cur->process_fields->process_started = 0;
-    sema_up(&cur->process_fields->sem);
+    sema_up(&temporary);
     thread_exit();
   }
-
-  cur->process_fields->process_started = 1;
-  sema_up(&cur->process_fields->sem);
-  /* End Task 2: Process Control Syscalls */
 
   /* Start the user process by simulating a return from an
      interrupt, implemented by intr_exit (in
@@ -273,29 +136,9 @@ static void start_process(void* file_name_) {
 
    This function will be implemented in problem 2-2.  For now, it
    does nothing. */
-int process_wait(pid_t child_pid) {
-  /* Task 2: Process Control Syscalls */
-  int exit_code;
-  struct thread* parent_thread = thread_current();
-  struct list* children = &parent_thread->children;
-  struct process_fields* child_process_fields = NULL;
-  struct process_fields* curr_process_fields;
-  struct list_elem* iter;
-  for (iter = list_begin(children); iter != list_end(children); iter = list_next(iter)) {
-    curr_process_fields = list_entry(iter, struct process_fields, elem);
-    if (curr_process_fields->pid == child_pid) {
-      child_process_fields = curr_process_fields;
-    }
-  }
-  if (child_process_fields == NULL) {
-    exit_code = -1;
-  } else {
-    sema_down(&child_process_fields->sem);
-    exit_code = child_process_fields->ec;
-    list_remove(&child_process_fields->elem);
-  }
-  return exit_code;
-  /* End Task 2: Process Control Syscalls */
+int process_wait(pid_t child_pid UNUSED) {
+  sema_down(&temporary);
+  return 0;
 }
 
 /* Free the current process's resources. */
@@ -308,53 +151,6 @@ void process_exit(void) {
     thread_exit();
     NOT_REACHED();
   }
-
-  /* START TASK: File Operation Syscalls */
-
-  /* Close all files the process has open. */
-
-  /* Get the main process struct. */
-  struct process* main_pcb = process_current();
-
-  /* Iterate through process's active_files to find all open files. */
-  struct list_elem* e;
-  struct list* active_files = &main_pcb->active_files;
-
-  /* Initialize a list of occupied_fds, which will be used for storing the file descriptors currently in use. */
-  struct list occupied_fds;
-  list_init(&occupied_fds);
-
-  /* Find all file descriptors currently in use and put them in occupied_fds. */
-  for (e = list_begin(active_files); e != list_end(active_files); e = list_next(e)) {
-    struct active_file* temp_file = list_entry(e, struct active_file, elem);
-    struct fd* new_fd = (struct fd*)malloc(sizeof(struct fd));
-    new_fd->fd = temp_file->fd;
-    list_push_back(&occupied_fds, &new_fd->elem);
-  }
-
-  /* Iterate through all occupied_fds and close the file correlating to each one. */
-  while (!list_empty(&occupied_fds)) {
-    struct list_elem* temp_fd_elem = list_pop_front(&occupied_fds);
-    struct fd* temp_fd = list_entry(temp_fd_elem, struct fd, elem);
-
-    /* Call close from syscall.h */
-    close(temp_fd->fd);
-
-    /* Free temp_fd from occupied_fds */
-    free(temp_fd);
-  }
-
-  /* Iterate through all available_fds and free them. */
-  while (!list_empty(&main_pcb->available_fds)) {
-    struct list_elem* temp_fd_elem = list_pop_front(&main_pcb->available_fds);
-    struct fd* temp_fd = list_entry(temp_fd_elem, struct fd, elem);
-    free(temp_fd);
-  }
-
-  /* Close executing file. */
-  file_close(cur->pcb->executing_file);
-
-  /* END TASK: File Operation Syscalls */
 
   /* Destroy the current process's page directory and switch back
      to the kernel-only page directory. */
@@ -380,24 +176,7 @@ void process_exit(void) {
   cur->pcb = NULL;
   free(pcb_to_free);
 
-  /* Task 2: Process Control Syscalls */
-  /* Print out program name and exit code. */
-  printf("%s: exit(%d)\n", cur->name, cur->process_fields->ec);
-  /* End Task 2: Process Control Syscalls */
-
-  /* Task 2: Process Control Syscalls */
-  // Allow waiting parent to proceed
-  if (cur->process_fields != NULL) {
-    sema_up(&cur->process_fields->sem);
-  }
-  // If parent exits before children, free children resources
-  while (!list_empty(&cur->children)) {
-    // We free the children's process_fields regardless if they exit before or after the
-    // parent, since the process_fields struct serves to inform the parent, and becomes
-    // useless if the parent disappears.
-    free(list_entry(list_pop_front(&cur->children), struct process_fields, elem));
-  }
-  /* End Task 2: Process Control Syscalls */
+  sema_up(&temporary);
   thread_exit();
 }
 
