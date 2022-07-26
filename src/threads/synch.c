@@ -98,8 +98,8 @@ bool sema_try_down(struct semaphore* sema) {
    This function may be called from an interrupt handler. */
 void sema_up(struct semaphore* sema) {
   enum intr_level old_level;
-  struct thread *cur = thread_current();
   struct thread *t = NULL;
+
   ASSERT(sema != NULL);
 
   old_level = intr_disable();
@@ -193,7 +193,7 @@ void lock_acquire(struct lock* lock) {
           q->effective_priority = t->effective_priority;
           t = q;
         }
-      } 
+      }
     }
   }
   intr_set_level(old_level);

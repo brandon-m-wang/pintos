@@ -237,6 +237,11 @@ tid_t thread_create(const char* name, int priority, thread_func* function, void*
   /* Add to run queue. */
   thread_unblock(t);
 
+  /* Preempt thread if new thread has higher effective priority than current one. */
+  if (thread_current()->effective_priority < t->effective_priority) {
+    intr_yield_on_return();
+  }
+
   return tid;
 }
 
@@ -365,9 +370,9 @@ void thread_set_priority(int new_priority) {
   // If we have no locks, or if the priority increases above effective prio, then we can increase the effective priority
   if (list_empty(&t->owned_locks) || new_priority > t->effective_priority) {
     t->effective_priority = new_priority;
-    // Otherwise, if the priority drops below the base priority, then we can only decrease the effective prio by the max
+    // Otherwise, if the priority drops below the effective priority, then we can only decrease the effective prio to the max
     // of the effective priorities of the threads waiting on the locks being held.
-  } else if (new_priority > t->priority) {
+  } else if (new_priority < t->effective_priority) {
     struct lock *lock_with_highest_waiter = list_entry(list_max(&t->owned_locks, locks_waiters_comp_priority, NULL), 
                                                        struct lock, elem);
     struct thread *highest_waiter = list_entry(list_max(&lock_with_highest_waiter->semaphore.waiters, thread_comp_priority, NULL), 
