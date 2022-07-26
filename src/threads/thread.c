@@ -368,7 +368,7 @@ void thread_set_priority(int new_priority) {
   struct thread *t = thread_current();
   enum intr_level old_level = intr_disable();
   // If we have no locks, or if the priority increases above effective prio, then we can increase the effective priority
-  if (list_empty(&t->owned_locks) || new_priority > t->effective_priority) {
+  if (list_empty(&t->owned_locks) || new_priority >= t->effective_priority) {
     t->effective_priority = new_priority;
     // Otherwise, if the priority drops below the effective priority, then we can only decrease the effective prio to the max
     // of the effective priorities of the threads waiting on the locks being held.
