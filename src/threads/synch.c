@@ -120,6 +120,10 @@ void sema_up(struct semaphore* sema) {
     if (t != NULL && thread_current()->effective_priority < t->effective_priority) {
       thread_yield();
     }
+  } else {
+    if (t != NULL && thread_current()->effective_priority < t->effective_priority) {
+      intr_yield_on_return();
+    }
   }
 }
 
