@@ -81,13 +81,17 @@ bool sema_try_down(struct semaphore* sema) {
 
   ASSERT(sema != NULL);
 
-  old_level = intr_disable();
+  if (!intr_context()) {
+    old_level = intr_disable();
+  }
   if (sema->value > 0) {
     sema->value--;
     success = true;
   } else
     success = false;
-  intr_set_level(old_level);
+  if (!intr_context()) {
+    intr_set_level(old_level);
+  }
 
   return success;
 }
@@ -101,15 +105,22 @@ void sema_up(struct semaphore* sema) {
   struct thread *t = NULL;
 
   ASSERT(sema != NULL);
-
-  old_level = intr_disable();
+  if (!intr_context()) {
+    old_level = intr_disable();
+  }
   if (!list_empty(&sema->waiters)) {
     t = list_entry(list_max(&sema->waiters, thread_comp_priority, NULL), struct thread, elem);
     list_remove(&t->elem);
     thread_unblock(t);
   }
   sema->value++;
-  intr_set_level(old_level);
+  if (!intr_context()) {
+    intr_set_level(old_level);
+    // yield if not highest effective prio
+    if (t != NULL && thread_current()->effective_priority < t->effective_priority) {
+      thread_yield();
+    }
+  }
 }
 
 static void sema_test_helper(void* sema_);
@@ -214,18 +225,22 @@ void lock_acquire(struct lock* lock) {
    interrupt handler. */
 bool lock_try_acquire(struct lock* lock) {
   bool success;
-
+  enum intr_level old_level;
   ASSERT(lock != NULL);
   ASSERT(!lock_held_by_current_thread(lock));
 
   success = sema_try_down(&lock->semaphore);
-  enum intr_level old_level = intr_disable();
+  if (!intr_context()) {
+    old_level = intr_disable();
+  }
   if (success) {
     struct thread *t = thread_current();
     list_push_back(&t->owned_locks, &lock->elem);
     lock->holder = t;
   }
-  intr_set_level(old_level);
+  if (!intr_context()) {
+    intr_set_level(old_level);
+  }
   return success;
 }
 
