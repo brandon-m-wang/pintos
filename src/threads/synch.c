@@ -98,12 +98,16 @@ bool sema_try_down(struct semaphore* sema) {
    This function may be called from an interrupt handler. */
 void sema_up(struct semaphore* sema) {
   enum intr_level old_level;
+  struct thread *t = NULL;
 
   ASSERT(sema != NULL);
 
   old_level = intr_disable();
-  if (!list_empty(&sema->waiters))
-    thread_unblock(list_entry(list_max(&sema->waiters, thread_comp_priority, NULL), struct thread, elem));
+  if (!list_empty(&sema->waiters)) {
+    t = list_entry(list_max(&sema->waiters, thread_comp_priority, NULL), struct thread, elem);
+    list_remove(&t->elem);
+    thread_unblock(t);
+  }
   sema->value++;
   intr_set_level(old_level);
 }
@@ -243,7 +247,7 @@ void lock_release(struct lock* lock) {
     t->effective_priority = t->priority;
   } else {
     struct lock *lock_with_highest_waiter = list_entry(list_max(&t->owned_locks, locks_waiters_comp_priority, NULL), 
-                                                       struct thread, elem);
+                                                       struct lock, elem);
     struct thread *highest_waiter = list_entry(list_max(&lock_with_highest_waiter->semaphore.waiters, thread_comp_priority, NULL), 
                                                struct thread, elem);
     if (highest_waiter->effective_priority > t->priority) {
