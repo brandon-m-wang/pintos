@@ -543,16 +543,9 @@ static struct thread* thread_schedule_fifo(void) {
 static struct thread* thread_schedule_prio(void) {
   if (!list_empty(&ready_list)) {
     struct thread *t = list_entry(list_max(&ready_list, thread_comp_priority, NULL), struct thread, elem);
-<<<<<<< Updated upstream
     list_remove(&t->elem);
     return t;
   } else {
-=======
-    list_remove(&(t->elem));
-    return t;
-  }
-  else
->>>>>>> Stashed changes
     return idle_thread;
   }
 }
