@@ -285,11 +285,10 @@ void lock_release(struct lock* lock) {
       that are waiting on the current thread's owned locks may have have donated to the current thread. */
 
     /* Get the lock with the highest effective priority waiter */
-    struct lock *lock_with_highest_waiter = list_entry(list_max(&t->owned_locks, locks_waiters_comp_priority, NULL), 
-                                                       struct lock, elem);
+    struct lock *lock_with_highest_waiter = list_entry(list_max(&t->owned_locks, locks_waiters_comp_priority, NULL), struct lock, elem);
+
     /* Get the highest effective priority waiter from the lock obtained above. */
-    struct thread *highest_waiter = list_entry(list_max(&lock_with_highest_waiter->semaphore.waiters, thread_comp_priority, NULL), 
-                                               struct thread, elem);
+    struct thread *highest_waiter = list_entry(list_max(&lock_with_highest_waiter->semaphore.waiters, thread_comp_priority, NULL), struct thread, elem);
     if (highest_waiter->effective_priority >= t->priority) {
       t->effective_priority = highest_waiter->effective_priority;
     } else {
@@ -326,7 +325,7 @@ bool locks_waiters_comp_priority(const struct list_elem *e1, const struct list_e
   struct lock *l2 = list_entry(e2, struct lock, elem);
   struct thread *max_l1_waiter = list_entry(list_max(&l1->semaphore.waiters, thread_comp_priority, NULL), struct thread, elem); 
   struct thread *max_l2_waiter = list_entry(list_max(&l2->semaphore.waiters, thread_comp_priority, NULL), struct thread, elem); 
-  return max_l1_waiter->effective_priority > max_l2_waiter->effective_priority;
+  return max_l1_waiter->effective_priority < max_l2_waiter->effective_priority;
 }
 /* Strict Priority Scheduler */
 
@@ -399,7 +398,6 @@ struct semaphore_elem {
    code to receive the signal and act upon it. */
 void cond_init(struct condition* cond) {
   ASSERT(cond != NULL);
-
   list_init(&cond->waiters);
 }
 
@@ -438,6 +436,16 @@ void cond_wait(struct condition* cond, struct lock* lock) {
   lock_acquire(lock);
 }
 
+bool cond_comp_priority(const struct list_elem *a, const struct list_elem *b, void *aux) {
+    struct list_elem *list_elem_a = list_begin(&(list_entry(a, struct semaphore_elem, elem)->semaphore.waiters));
+    struct list_elem *list_elem_b = list_begin(&(list_entry(b, struct semaphore_elem, elem)->semaphore.waiters));
+
+    struct thread *t = list_entry(list_elem_a, struct thread, elem);
+    struct thread *q = list_entry(list_elem_b, struct thread, elem);
+
+    return t->effective_priority > q->effective_priority;
+}
+
 /* If any threads are waiting on COND (protected by LOCK), then
    this function signals one of them to wake up from its wait.
    LOCK must be held before calling this function.
@@ -452,18 +460,8 @@ void cond_signal(struct condition* cond, struct lock* lock UNUSED) {
   ASSERT(lock_held_by_current_thread(lock));
 
   if (!list_empty(&cond->waiters)) {
-    struct semaphore sem_with_highest_waiter;
-    int prio = -1;
-    struct list_elem *iter;
-    for (iter = list_begin(&cond->waiters); iter != list_end(&cond->waiters); iter = list_next(iter)) {
-      struct semaphore curr_sem = list_entry(iter, struct semaphore_elem, elem)->semaphore;
-      struct thread *curr_thread = list_entry(list_max(&curr_sem.waiters, thread_comp_priority, NULL), struct thread, elem);
-      if (curr_thread->effective_priority > prio) {
-        prio = curr_thread->effective_priority;
-        sem_with_highest_waiter = curr_sem;
-      }
-    }
-    sema_up(&sem_with_highest_waiter);
+    list_sort(&cond->waiters, cond_comp_priority, NULL);
+    sema_up (&list_entry (list_pop_front(&cond->waiters), struct semaphore_elem, elem)->semaphore);
   }
 }
 
