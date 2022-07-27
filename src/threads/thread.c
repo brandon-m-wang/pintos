@@ -535,10 +535,13 @@ static struct thread* thread_schedule_fifo(void) {
 
 /* Strict priority scheduler */
 static struct thread* thread_schedule_prio(void) {
-  if (!list_empty(&ready_list))
-    return list_entry(list_max(&ready_list, thread_comp_priority, NULL), struct thread, elem);
-  else
+  if (!list_empty(&ready_list)) {
+    struct thread *t = list_entry(list_max(&ready_list, thread_comp_priority, NULL), struct thread, elem);
+    list_remove(&t->elem);
+    return t;
+  } else {
     return idle_thread;
+  }
 }
 
 /* Fair priority scheduler */

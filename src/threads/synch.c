@@ -108,7 +108,9 @@ void sema_up(struct semaphore* sema) {
   if (!intr_context()) {
     old_level = intr_disable();
   }
+ 
   if (!list_empty(&sema->waiters)) {
+    // If there are any waiters, grab the thread with the highest priority that is waiting for the lock and unblock it.
     t = list_entry(list_max(&sema->waiters, thread_comp_priority, NULL), struct thread, elem);
     list_remove(&t->elem);
     thread_unblock(t);
@@ -116,7 +118,7 @@ void sema_up(struct semaphore* sema) {
   sema->value++;
   if (!intr_context()) {
     intr_set_level(old_level);
-    // yield if not highest effective prio
+    // Yield if the unblocked thread has a higher effective priority than the current thread.
     if (t != NULL && thread_current()->effective_priority < t->effective_priority) {
       thread_yield();
     }
@@ -197,26 +199,40 @@ void lock_acquire(struct lock* lock) {
 
   struct thread *t = thread_current();
   enum intr_level old_level = intr_disable();
+
   t->pending_lock = lock;
-  struct thread *q = lock->holder;
-  if (q != NULL) {
-    if (q->effective_priority < t->effective_priority) {
+  struct thread *holder = lock->holder;
+  int acquirer_priority = t->effective_priority;
+
+  if (holder != NULL) {
+    // If the lock holder has a lower effective priority, go down the holder chain until you find a thread with no pending locks (this should be the thread that all pending threads would be waiting for).
+    if (holder->effective_priority < t->effective_priority) {
       // if lock holder has lower effective prio, donate recursively
       while (t->pending_lock != NULL) {
-        q = t->pending_lock->holder;
-        if (q->effective_priority < t->effective_priority) {
-          q->effective_priority = t->effective_priority;
-          t = q;
+        // Get the thread holding the lock that t is trying to acquire.
+        holder = t->pending_lock->holder;
+
+        if (holder->effective_priority < t->effective_priority) {
+          holder->effective_priority = t->effective_priority;
+          // Assign holder to t now, to check whether the holder is waiting on someone else as well.
+          t = holder;
         }
       }
     }
   }
+  // Reenable interrupts.
   intr_set_level(old_level);
+
+  // Acquire the lock if not held, otherwise add it to waiters and put it to sleep until lock is released (by sema_up() in lock_release()).
   sema_down(&lock->semaphore);
+  
   old_level = intr_disable();
   t = thread_current();
+  // The current thread now is the owner of the lock and is no longer waiting for someone to finish.
   t->pending_lock = NULL;
+  // The new lock holder is now the current thread.
   lock->holder = t;
+  // Add lock to the current thread's owned_locks.
   list_push_back(&t->owned_locks, &lock->elem);
   intr_set_level(old_level);
 }
@@ -258,15 +274,21 @@ void lock_release(struct lock* lock) {
   ASSERT(lock_held_by_current_thread(lock));
   struct thread *t = thread_current();
   enum intr_level old_level = intr_disable();
+
+  // Remove lock from current threads owned_locks
   list_remove(&lock->elem);
   lock->holder = NULL;
-  sema_up(&lock->semaphore);
   // Calculate new effective priority for current thread.
   if (list_empty(&t->owned_locks)) {
     t->effective_priority = t->priority;
   } else {
+    /* We must reconfigure the effective priority of the current thread because other threads
+      that are waiting on the current thread's owned locks may have have donated to the current thread. */
+
+    /* Get the lock with the highest effective priority waiter */
     struct lock *lock_with_highest_waiter = list_entry(list_max(&t->owned_locks, locks_waiters_comp_priority, NULL), 
                                                        struct lock, elem);
+    /* Get the highest effective priority waiter from the lock obtained above. */
     struct thread *highest_waiter = list_entry(list_max(&lock_with_highest_waiter->semaphore.waiters, thread_comp_priority, NULL), 
                                                struct thread, elem);
     if (highest_waiter->effective_priority > t->priority) {
@@ -275,7 +297,11 @@ void lock_release(struct lock* lock) {
       t->effective_priority = t->priority;
     }
   }
-  // Yield if not highest priority
+
+  // Release the lock and yield if there exists a waiter that has higher priority than the current thread.
+  sema_up(&lock->semaphore);
+
+  // Yield if not highest priority in ready list.
   int highest_effective_prio = list_entry(list_max(&ready_list, thread_comp_priority, NULL), 
                                           struct thread, elem)->effective_priority;
   if (t->effective_priority < highest_effective_prio) {
