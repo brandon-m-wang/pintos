@@ -4,6 +4,7 @@
 #include <random.h>
 #include <stdio.h>
 #include <string.h>
+#include "devices/timer.h"
 #include "threads/flags.h"
 #include "threads/interrupt.h"
 #include "threads/intr-stubs.h"
@@ -238,7 +239,7 @@ tid_t thread_create(const char* name, int priority, thread_func* function, void*
   thread_unblock(t);
 
   /* Preempt thread if new thread has higher effective priority than current one. */
-  if (thread_current()->effective_priority < t->effective_priority) {
+  if (intr_context() && thread_current()->effective_priority < t->effective_priority) {
     intr_yield_on_return();
   }
 
