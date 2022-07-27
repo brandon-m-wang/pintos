@@ -257,7 +257,7 @@ void lock_release(struct lock* lock) {
   list_remove(&lock->elem);
   lock->holder = NULL;
   sema_up(&lock->semaphore);
-  // Calculate new priority
+  // Calculate new effective priority for current thread.
   if (list_empty(&t->owned_locks)) {
     t->effective_priority = t->priority;
   } else {
