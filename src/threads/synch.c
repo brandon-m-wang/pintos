@@ -202,7 +202,6 @@ void lock_acquire(struct lock* lock) {
 
   t->pending_lock = lock;
   struct thread *holder = lock->holder;
-  int acquirer_priority = t->effective_priority;
 
   if (holder != NULL) {
     // If the lock holder has a lower effective priority, go down the holder chain until you find a thread with no pending locks (this should be the thread that all pending threads would be waiting for).
@@ -291,7 +290,7 @@ void lock_release(struct lock* lock) {
     /* Get the highest effective priority waiter from the lock obtained above. */
     struct thread *highest_waiter = list_entry(list_max(&lock_with_highest_waiter->semaphore.waiters, thread_comp_priority, NULL), 
                                                struct thread, elem);
-    if (highest_waiter->effective_priority > t->priority) {
+    if (highest_waiter->effective_priority >= t->priority) {
       t->effective_priority = highest_waiter->effective_priority;
     } else {
       t->effective_priority = t->priority;
@@ -456,15 +455,13 @@ void cond_signal(struct condition* cond, struct lock* lock UNUSED) {
     struct semaphore sem_with_highest_waiter;
     int prio = -1;
     struct list_elem *iter;
-    for (iter = list_begin(&cond->waiters); iter != list_end(&cond->waiters);
-       iter = list_next(iter)) {
-        struct semaphore curr_sem = list_entry(iter, struct semaphore_elem, elem)->semaphore;
-        struct thread *curr_thread = list_entry(list_max(&curr_sem.waiters, thread_comp_priority, NULL), 
-                                               struct thread, elem);
-        if (curr_thread->effective_priority > prio) {
-          prio = curr_thread->effective_priority;
-          sem_with_highest_waiter = curr_sem;
-        }
+    for (iter = list_begin(&cond->waiters); iter != list_end(&cond->waiters); iter = list_next(iter)) {
+      struct semaphore curr_sem = list_entry(iter, struct semaphore_elem, elem)->semaphore;
+      struct thread *curr_thread = list_entry(list_max(&curr_sem.waiters, thread_comp_priority, NULL), struct thread, elem);
+      if (curr_thread->effective_priority > prio) {
+        prio = curr_thread->effective_priority;
+        sem_with_highest_waiter = curr_sem;
+      }
     }
     sema_up(&sem_with_highest_waiter);
   }

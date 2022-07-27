@@ -400,7 +400,7 @@ void thread_set_priority(int new_priority) {
 }
 
 /* Returns the current thread's priority. */
-int thread_get_priority(void) { return thread_current()->priority; }
+int thread_get_priority(void) { return thread_current()->effective_priority; }
 /* Strict Priority Scheduler
 
 /* Strict Priority Scheduler */
