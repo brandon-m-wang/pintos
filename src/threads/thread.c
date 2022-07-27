@@ -238,9 +238,14 @@ tid_t thread_create(const char* name, int priority, thread_func* function, void*
   /* Add to run queue. */
   thread_unblock(t);
 
-  /* Preempt thread if new thread has higher effective priority than current one. */
+  /* Preempt thread if new thread has higher effective priority than current one in an interrupt context. */
   if (intr_context() && thread_current()->effective_priority < t->effective_priority) {
     intr_yield_on_return();
+  }
+
+  /* Preempt thread if new thread has higher effective priority than current one in a regular context. */
+  if (!intr_context() && thread_current()->effective_priority < t->effective_priority) {
+    thread_yield();
   }
 
   return tid;
@@ -527,8 +532,9 @@ static void* alloc_frame(struct thread* t, size_t size) {
 
 /* First-in first-out scheduler */
 static struct thread* thread_schedule_fifo(void) {
-  if (!list_empty(&ready_list))
+  if (!list_empty(&ready_list)) {
     return list_entry(list_pop_front(&ready_list), struct thread, elem);
+  }
   else
     return idle_thread;
 }
@@ -537,9 +543,16 @@ static struct thread* thread_schedule_fifo(void) {
 static struct thread* thread_schedule_prio(void) {
   if (!list_empty(&ready_list)) {
     struct thread *t = list_entry(list_max(&ready_list, thread_comp_priority, NULL), struct thread, elem);
+<<<<<<< Updated upstream
     list_remove(&t->elem);
     return t;
   } else {
+=======
+    list_remove(&(t->elem));
+    return t;
+  }
+  else
+>>>>>>> Stashed changes
     return idle_thread;
   }
 }
