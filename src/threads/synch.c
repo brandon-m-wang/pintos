@@ -288,12 +288,8 @@ void lock_release(struct lock* lock) {
     struct lock *lock_with_highest_waiter = list_entry(list_max(&t->owned_locks, locks_waiters_comp_priority, NULL), struct lock, elem);
 
     /* Get the highest effective priority waiter from the lock obtained above. */
-<<<<<<< Updated upstream
-    struct thread *highest_waiter = list_entry(list_max(&lock_with_highest_waiter->semaphore.waiters, thread_comp_priority, NULL), struct thread, elem);
-=======
     struct thread *highest_waiter = list_entry(list_max(&lock_with_highest_waiter->semaphore.waiters, thread_comp_priority, NULL), 
                                                struct thread, elem);
->>>>>>> Stashed changes
     if (highest_waiter->effective_priority >= t->priority) {
       t->effective_priority = highest_waiter->effective_priority;
     } else {
