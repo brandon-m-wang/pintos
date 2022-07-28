@@ -7,7 +7,7 @@ alarm-negative priority-change priority-donate-one \
 priority-donate-multiple priority-donate-multiple2 \
 priority-donate-nest priority-donate-sema priority-donate-lower \
 priority-fifo priority-preempt priority-sema priority-condvar \
-priority-donate-chain \
+priority-donate-chain priority-donate-tree \
 )
 
 # Remove priority tests that are not in autograder
@@ -43,6 +43,7 @@ tests/threads_SRC += tests/threads/priority-preempt.c
 tests/threads_SRC += tests/threads/priority-sema.c
 tests/threads_SRC += tests/threads/priority-condvar.c
 tests/threads_SRC += tests/threads/priority-donate-chain.c
+tests/threads_SRC += tests/threads/priority-donate-tree.c
 tests/threads_SRC += tests/threads/priority-starve.c
 tests/threads_SRC += tests/threads/priority-starve-sema.c
 tests/threads_SRC += tests/threads/mt-matmul.c
