@@ -89,8 +89,6 @@ struct thread {
   uint8_t* stack;            /* Saved stack pointer. */
   int priority;              /* Priority. */
   struct list_elem allelem;  /* List element for all threads list. */
-  struct list_elem sleep_elem; /* List elem for sleeping_threads list. */
-  int64_t time_to_wake;       /* The time to wake up this thread */
 
   /* Shared between thread.c and synch.c. */
   struct list_elem elem; /* List element. */
@@ -98,13 +96,12 @@ struct thread {
 #ifdef USERPROG
   /* Owned by process.c. */
   struct process* pcb; /* Process control block if this thread is a userprog */
+  struct process_fields* process_fields;
+  struct list children;
 #endif
 
   /* Owned by thread.c. */
   unsigned magic; /* Detects stack overflow. */
-  int effective_priority;
-  struct list owned_locks;
-  struct lock *pending_lock;
 };
 
 /* Types of scheduler that the user can request the kernel
@@ -122,10 +119,6 @@ enum sched_policy {
  *  "-sched-default", "-sched-fair", "-sched-mlfqs", "-sched-fifo"
  * Is equal to SCHED_FIFO by default. */
 extern enum sched_policy active_sched_policy;
-extern struct list ready_list;
-
-/* List of all sleeping threads. */
-extern struct list sleeping_threads;
 
 void thread_init(void);
 void thread_start(void);
@@ -152,9 +145,6 @@ void thread_foreach(thread_action_func*, void*);
 
 int thread_get_priority(void);
 void thread_set_priority(int);
-/* Strict Priority Scheduler */
-bool thread_comp_priority(const struct list_elem *e1, const struct list_elem *e2, void *aux);
-/* Strict Priority Scheduler */
 
 int thread_get_nice(void);
 void thread_set_nice(int);
