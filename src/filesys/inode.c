@@ -34,7 +34,6 @@ struct inode_disk {
   unsigned magic;       /* Magic number. */
 };
 
-
 /* Project 3 Task 2 START */
 
 /* a single indirect block */
@@ -781,5 +780,15 @@ void inode_allow_write(struct inode* inode) {
   inode->deny_write_cnt--;
 }
 
+/* Returns an inode's sector. */
+block_sector_t inode_get_sector(struct inode* inode) {
+  return inode->sector;
+}
+
+/* Set dst's parent directory to be src */
+void inode_set_parent(struct inode* dst, struct inode* src) {
+  dst->data.parent_dir = src->sector;
+}
+
 /* Returns the length, in bytes, of INODE's data. */
-off_t inode_length(const struct inode* inode) { return inode->data.length; }
+off_t inode_length(const struct inode* inode) { return inode->data.length;}
