@@ -879,6 +879,11 @@ void inode_set_parent(struct inode* dst, struct inode* src) {
   dst->data.parent_dir = src->sector;
 }
 
+/* Check inode's inode_disk's is_dir */
+bool is_inode_dir(struct inode* inode) {
+  return inode->data.is_dir;
+}
+
 /* Returns the length, in bytes, of INODE's data. */
 off_t inode_length(const struct inode* inode) { return inode->data.length;}
 
