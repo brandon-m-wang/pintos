@@ -19,5 +19,15 @@ off_t inode_write_at(struct inode*, const void*, off_t size, off_t offset);
 void inode_deny_write(struct inode*);
 void inode_allow_write(struct inode*);
 off_t inode_length(const struct inode*);
+/* Initializes the buffer cache. */
+void init_buffer_cache(void);
+/* Flushes cache out to disk upon shutdown. */
+void flush_cache(void);
+/* Evicts a block from buffer cache according to the clock replacement algorithm. Then replaces it with a new block with the given sector on disk. */
+int replace_block(block_sector_t sector);
+/* Read an entry from the cache into buffer, pulling in a sector from disk into the cache for reading if the sector is not in the cache already. */
+void cache_read(block_sector_t sector, void *buffer);
+/* Write an entry to the cache from buffer, pulling in a sector from disk into the cache for writing if the sector is not in the cache already. */
+void cache_write(block_sector_t sector, void *buffer);
 
 #endif /* filesys/inode.h */

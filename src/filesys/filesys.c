@@ -26,11 +26,21 @@ void filesys_init(bool format) {
     do_format();
 
   free_map_open();
+
+  /* START TASK: Buffer Cache */
+  init_buffer_cache();
+  /* END TASK: Buffer Cache */
 }
 
 /* Shuts down the file system module, writing any unwritten data
    to disk. */
-void filesys_done(void) { free_map_close(); }
+void filesys_done(void) {
+  free_map_close();
+
+  /* START TASK: Buffer Cache */
+  flush_cache();
+  /* END TASK: Buffer Cache */
+}
 
 /* Creates a file named NAME with the given INITIAL_SIZE.
    Returns true if successful, false otherwise.
