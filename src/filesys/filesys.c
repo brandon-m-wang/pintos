@@ -36,6 +36,11 @@ void filesys_init(bool format) {
     do_format();
 
   free_map_open();
+
+  /* START TASK: Subdirectories */
+  thread_current()->cwd = dir_open_root();
+  // set its inode_disk->parent-dir
+  /* END TASK: Subdirectories */
 }
 
 /* Shuts down the file system module, writing any unwritten data
