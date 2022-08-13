@@ -12,6 +12,8 @@
 #include "filesys/file.h"
 #include "filesys/filesys.h"
 #include "lib/float.h"
+#include "filesys/directory.h"
+#include "filesys/inode.h"
 
 static void syscall_handler(struct intr_frame*);
 
@@ -111,17 +113,35 @@ static void syscall_handler(struct intr_frame* f UNUSED) {
     }
 
     f->eax = sys_sum_to_e((int)args[1]);
-  } else if (args[0] == SYS_CHDIR) {
-    if (!valid_pointer((void*)args + 4, sizeof(uint32_t*)) || !valid_string(args[1])) {
+  } else if (args[0] == SYS_CHDIR) { /* chdir */
+    if (!valid_pointer((void*)args + 4, sizeof(uint32_t*)) || !valid_string((char*)args[1])) {
       exit_with_error(&f->eax, -1);
     }
 
   } else if (args[0] == SYS_MKDIR) {
-    if (!valid_pointer((void*)args + 4, sizeof(uint32_t*)) || !valid_string(args[1])) {
+    if (!valid_pointer((void*)args + 4, sizeof(uint32_t*)) || !valid_string((char*)args[1])) {
       exit_with_error(&f->eax, -1);
     }
 
     f->eax = create(args[1], 2 * 20, true);
+  } else if (args[0] == SYS_ISDIR) {
+    struct active_file* target_file = get_active_file((int) args[1]);
+    if (target_file != NULL) {
+      f->eax = target_file->dir != NULL;
+    } else {
+      exit_with_error(&f->eax, -1);
+    }
+  } else if (args[0] == SYS_INUMBER) {
+    // get_active_file from fd
+    // use file_get_inode
+    // use inode_get_inumber
+    struct active_file* target_file = get_active_file((int) args[1]);
+    if (target_file != NULL) {
+      struct inode* inode = file_get_inode(target_file->file);
+      f->eax = inode_get_inumber(inode);
+    } else {
+      exit_with_error(&f->eax, -1);
+    }
   }
 }
 
@@ -195,6 +215,14 @@ int open(const char* file) {
   struct active_file* new_open_file = (struct active_file*)malloc(sizeof(struct active_file));
   new_open_file->fd = new_fd;
   new_open_file->file = opened_file;
+
+  /* Subdirectories: If inode is a directory, set active_file->dir to ptr to a dir struct */
+  bool is_dir = is_file_dir(opened_file);
+  if (is_dir) {
+    struct dir* open_dir = dir_open(file_get_inode(opened_file));
+    new_open_file->dir = open_dir;
+  }
+  /* End Subdirectories */
 
   struct list_elem new_elem = {NULL, NULL};
   new_open_file->elem = new_elem;

@@ -26,7 +26,7 @@ bool dir_create(block_sector_t sector, size_t entry_cnt) {
   struct inode* root_inode = inode_open(sector);
   struct dir* root_dir = dir_open(root_inode);
 
-  bool success = (dir_add(root_dir, ".", sector) && dir_add(root_dir, "..", sector));
+  success = (dir_add(root_dir, ".", sector) && dir_add(root_dir, "..", sector));
   dir_close(root_dir);
   return success;
 }
