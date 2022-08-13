@@ -253,6 +253,9 @@ static void start_process(void* file_name_) {
   cur->process_fields->process_started = 1;
   sema_up(&cur->process_fields->sem);
   /* End Task 2: Process Control Syscalls */
+  /* START TASK: Subdirectories */
+  // If cur
+  /* END TASK: Subdirectories */
 
   /* Start the user process by simulating a return from an
      interrupt, implemented by intr_exit (in
