@@ -33,5 +33,7 @@ void cache_write(block_sector_t sector, void *buffer);
 block_sector_t inode_get_sector(struct inode* inode);
 /* Set dst's parent directory to be src */
 void inode_set_parent(struct inode* dst, struct inode* src);
+void inode_dec_files_contained(struct inode* inode);
+void inode_inc_files_contained(struct inode* inode);
 
 #endif /* filesys/inode.h */

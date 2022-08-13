@@ -5,6 +5,7 @@
 #include "filesys/filesys.h"
 #include "filesys/inode.h"
 #include "threads/malloc.h"
+#include "userprog/process.h"
 
 /* A directory. */
 struct dir {
@@ -156,6 +157,7 @@ bool dir_add(struct dir* dir, const char* name, block_sector_t inode_sector) {
   if (success) {
 	  struct inode *new_dir = inode_open(inode_sector);
     inode_set_parent(new_dir, dir->inode);
+    inode_inc_files_contained(dir->inode);
     /* Close inode after opening */
     inode_close(new_dir);
   }
@@ -191,6 +193,11 @@ bool dir_remove(struct dir* dir, const char* name) {
   if (inode_write_at(dir->inode, &e, sizeof e, ofs) != sizeof e)
     goto done;
 
+  /* START TASK: Subdirectories */
+  /* Decrement files contained by parent directory */
+  inode_dec_files_contained(dir->inode);
+  /* END TASK: Subdirectories */
+
   /* Remove inode. */
   inode_remove(inode);
   success = true;
@@ -208,7 +215,8 @@ bool dir_readdir(struct dir* dir, char name[NAME_MAX + 1]) {
 
   while (inode_read_at(dir->inode, &e, sizeof e, dir->pos) == sizeof e) {
     dir->pos += sizeof e;
-    if (e.in_use) {
+    /* Note: strcmp returns 0 when strings are equal */
+    if (e.in_use && strcmp(e.name, ".") != 0 && strcmp(e.name, "..") != 0) {
       strlcpy(name, e.name, NAME_MAX + 1);
       return true;
     }

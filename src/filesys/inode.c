@@ -61,9 +61,10 @@ struct inode {
   bool removed;           /* True if deleted, false otherwise. */
   int deny_write_cnt;     /* 0: writes ok, >0: deny writes. */
   struct inode_disk data; /* Inode content. */
+  int files_contained;    /* Number of files this inode contains (if it is a directory). */
 
   /* Project 3 Task 2 START */
-  //struct lock inode_read_write_lock;  /* acquire and release lock whenever reading or writing from a single inode */
+  // struct lock i_lock;  /* acquire and release lock whenever reading or writing from a single inode */
   /* Project 3 Task 2 END */
 };
 
@@ -877,3 +878,15 @@ void inode_set_parent(struct inode* dst, struct inode* src) {
 
 /* Returns the length, in bytes, of INODE's data. */
 off_t inode_length(const struct inode* inode) { return inode->data.length;}
+
+/* Increments an inodes files contained */
+void inode_inc_files_contained(struct inode* inode) {
+  inode->files_contained++;
+  return;
+}
+
+/* Decrements an inodes files contained */
+void inode_dec_files_contained(struct inode* inode) {
+  inode->files_contained--;
+  return;
+}
