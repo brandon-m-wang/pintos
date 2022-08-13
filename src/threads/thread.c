@@ -200,6 +200,11 @@ tid_t thread_create(const char* name, int priority, thread_func* function, void*
   sema_init(&t->process_fields->sem, 0);
   list_push_back(&thread_current()->children, &t->process_fields->elem);
   /* End Task 2: Process Control Syscalls */
+  
+  /* START TASK: Subdirectories */
+  /* Inherit parents cwd */
+  t->cwd = thread_current()->cwd;
+  /* START TASK: Subdirectories */
 
   /* Stack frame for kernel_thread(). */
   kf = alloc_frame(t, sizeof *kf);
