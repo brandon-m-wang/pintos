@@ -29,5 +29,9 @@ int replace_block(block_sector_t sector);
 void cache_read(block_sector_t sector, void *buffer);
 /* Write an entry to the cache from buffer, pulling in a sector from disk into the cache for writing if the sector is not in the cache already. */
 void cache_write(block_sector_t sector, void *buffer);
+/* Returns an inode's sector. */
+block_sector_t inode_get_sector(struct inode* inode);
+/* Set dst's parent directory to be src */
+void inode_set_parent(struct inode* dst, struct inode* src);
 
 #endif /* filesys/inode.h */
