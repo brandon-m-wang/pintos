@@ -106,7 +106,7 @@ void flush_cache(void) {
 /* Evicts a block from buffer cache according to the clock replacement algorithm. Then replaces it with a new block with the given sector on disk. */
 int replace_block(block_sector_t sector) {
   /* Note: replace_block should be called in the context of the buffer_cache_lock already acquired. */
-  block *cache_entry;
+  block *cache_entry = NULL;
   block_sector_t evicted_sector;
   while (1) {
     /* Reset clock hand. */
@@ -116,7 +116,7 @@ int replace_block(block_sector_t sector) {
 
     /* Check if cache entry is ready for eviction */
     cache_entry = &buffer_cache[clock_pos];
-    if (cache_entry->clock_state == 1) {
+    if (cache_entry->valid && cache_entry->clock_state == 1) {
       cache_entry->clock_state = 0;
       clock_pos++;
       continue;
