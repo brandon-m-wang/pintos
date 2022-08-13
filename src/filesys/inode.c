@@ -294,7 +294,7 @@ static block_sector_t byte_to_sector(const struct inode* inode, off_t pos) {
   if (block_index < 122) {
     // Case where we can fetch block from direct blocks
     return inode_data.direct_blocks[block_index];
-  } else if (block_index < 252) {
+  } else if (block_index < 250) {
     // Case where we have to check single_indirect_block
 
     // Read indirect_block struct from disk with cache read and store in buffer
@@ -305,7 +305,7 @@ static block_sector_t byte_to_sector(const struct inode* inode, off_t pos) {
     return indirect_block->indirect_blocks[block_index - 128];
 
 
-  } else if (block_index < 252 + 128*128) {
+  } else if (block_index < 250 + 128*128) {
     // Case where we have to check double_direct_block
 
     // Read indirect_block struct from disk with cache read and store in buffer
@@ -314,10 +314,10 @@ static block_sector_t byte_to_sector(const struct inode* inode, off_t pos) {
 
     // Using indirect_block struct, index into indirect blocks and read next indirect_block struct
     struct indirect_block *indirect_block; 
-    cache_read(double_indirect_block->indirect_blocks[(block_index - 252) / 128], (void*) indirect_block);
+    cache_read(double_indirect_block->indirect_blocks[(block_index - 250) / 128], (void*) indirect_block);
 
     // Read from cache to get block
-    return indirect_block->indirect_blocks[(block_index - 252) % 128];
+    return indirect_block->indirect_blocks[(block_index - 250) % 128];
 
   } else {
     return -1;
@@ -389,7 +389,7 @@ bool inode_create(block_sector_t sector, off_t length, bool is_dir) {
           return false;
         }
         
-      } else if (i < 252) {
+      } else if (i < 250) {
         // Case where we can allocate sectors to single indirect blocks
 
         // Read indirect_block struct from disk with cache read and store in buffer
@@ -402,7 +402,7 @@ bool inode_create(block_sector_t sector, off_t length, bool is_dir) {
           return false;
         }
 
-      } else if (i < 252 + 128*128) {
+      } else if (i < 250 + 128*128) {
         // Case where we can allocate sectors to double indirect blocks
 
         // Read indirect_block struct from disk with cache read and store in buffer
@@ -410,17 +410,17 @@ bool inode_create(block_sector_t sector, off_t length, bool is_dir) {
         cache_read(disk_inode->double_indirect_block, (void*) double_indirect_block);
 
         // Allocate sector to access inner indirect block struct
-        bool result = free_map_allocate(1, &double_indirect_block->indirect_blocks[(i - 252) / 128]);
+        bool result = free_map_allocate(1, &double_indirect_block->indirect_blocks[(i - 250) / 128]);
         if (result == false) {
           return false;
         }
 
         // Using indirect_block struct, index into indirect blocks and read next indirect_block struct that we just allocated
         struct indirect_block *indirect_block; 
-        cache_read(double_indirect_block->indirect_blocks[(i - 252) / 128], (void*) indirect_block);
+        cache_read(double_indirect_block->indirect_blocks[(i - 250) / 128], (void*) indirect_block);
 
         // Allocate another sector in the inner indirect_block struct to be able to put data in
-        result = free_map_allocate(1, &indirect_block->indirect_blocks[(i - 252) % 128]);
+        result = free_map_allocate(1, &indirect_block->indirect_blocks[(i - 250) % 128]);
         if (result == false) {
           return false;
         }
@@ -519,24 +519,24 @@ void inode_close(struct inode* inode) {
 
           free_map_release(disk_inode.direct_blocks[i], 1);
         
-        } else if (i < 252) {
+        } else if (i < 250) {
           // Case where we can deallocate single indirect block sectors
 
           // Using indirect_block struct, deallocate sectors for its indirect_blocks array
           free_map_release(indirect_block->indirect_blocks[i - 128], 1);
 
-        } else if (i < 252 + 128*128) {
+        } else if (i < 250 + 128*128) {
           // Case where we can allocate sectors to double indirect blocks
 
           // Using indirect_block struct, index into indirect blocks and read next indirect_block struct that we just allocated
           struct indirect_block *indirect_block; 
-          cache_read(double_indirect_block->indirect_blocks[(i - 252) / 128], (void*) indirect_block);
+          cache_read(double_indirect_block->indirect_blocks[(i - 250) / 128], (void*) indirect_block);
 
           // Allocate another sector in the inner indirect_block struct to be able to put data in
-          free_map_release(indirect_block->indirect_blocks[(i - 252) % 128], 1);
+          free_map_release(indirect_block->indirect_blocks[(i - 250) % 128], 1);
 
-          if ((i - 252) % 128 == 127) {
-            free_map_release(double_indirect_block->indirect_blocks[(i - 252) / 128], 1);
+          if ((i - 250) % 128 == 127) {
+            free_map_release(double_indirect_block->indirect_blocks[(i - 250) / 128], 1);
           }
         }
 
@@ -659,7 +659,7 @@ off_t inode_write_at(struct inode* inode, const void* buffer_, off_t size, off_t
           return false;
         }
         
-      } else if (i < 252) {
+      } else if (i < 250) {
         // Case where we can allocate sectors to single indirect blocks
 
         // Read indirect_block struct from disk with cache read and store in buffer
@@ -672,7 +672,7 @@ off_t inode_write_at(struct inode* inode, const void* buffer_, off_t size, off_t
           return false;
         }
 
-      } else if (i < 252 + 128*128) {
+      } else if (i < 250 + 128*128) {
         // Case where we can allocate sectors to double indirect blocks
 
         // Read indirect_block struct from disk with cache read and store in buffer
@@ -680,17 +680,17 @@ off_t inode_write_at(struct inode* inode, const void* buffer_, off_t size, off_t
         cache_read(disk_inode.double_indirect_block, (void*) double_indirect_block);
 
         // Allocate sector to access inner indirect block struct
-        bool result = free_map_allocate(1, &double_indirect_block->indirect_blocks[(i - 252) / 128]);
+        bool result = free_map_allocate(1, &double_indirect_block->indirect_blocks[(i - 250) / 128]);
         if (result == false) {
           return false;
         }
 
         // Using indirect_block struct, index into indirect blocks and read next indirect_block struct that we just allocated
         struct indirect_block *indirect_block; 
-        cache_read(double_indirect_block->indirect_blocks[(i - 252) / 128], (void*) indirect_block);
+        cache_read(double_indirect_block->indirect_blocks[(i - 250) / 128], (void*) indirect_block);
 
         // Allocate another sector in the inner indirect_block struct to be able to put data in
-        result = free_map_allocate(1, &indirect_block->indirect_blocks[(i - 252) % 128]);
+        result = free_map_allocate(1, &indirect_block->indirect_blocks[(i - 250) % 128]);
         if (result == false) {
           return false;
         }
