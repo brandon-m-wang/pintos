@@ -75,6 +75,7 @@ bool filesys_create(const char* name, off_t initial_size, bool is_dir) {
     struct inode* new_dir_inode = inode_open(inode_sector); 
     struct dir* new_dir_struct = dir_open(new_dir_inode); /* newly created dir */
 
+    /* Add . and .. to newly created directory. */
     struct inode *dir_inode = dir_get_inode(dir); /* right-before dir */
     bool success = (dir_add(new_dir_struct, ".", inode_sector) && dir_add(new_dir_struct, "..", inode_get_sector(dir_inode)));
     dir_close(new_dir_struct);
@@ -94,11 +95,15 @@ bool filesys_create(const char* name, off_t initial_size, bool is_dir) {
    Fails if no file named NAME exists,
    or if an internal memory allocation fails. */
 struct file* filesys_open(const char* name) {
-  struct dir* dir = dir_open_root();
+  struct dir* dir = get_directory(name, true);
+  char last_name_in_path[NAME_MAX + 1];
+  if (!get_last_in_path(name, last_name_in_path)) {
+    return NULL;
+  };
   struct inode* inode = NULL;
 
   if (dir != NULL)
-    dir_lookup(dir, name, &inode);
+    dir_lookup(dir, last_name_in_path, &inode);
   dir_close(dir);
 
   return file_open(inode);
@@ -112,7 +117,9 @@ bool filesys_remove(const char* name) {
   /* START TASK: Subdirectories */
   struct dir* dir = get_directory(name, true);
   char last_name_in_path[NAME_MAX + 1];
-  get_last_in_path(name, last_name_in_path);
+  if (!get_last_in_path(name, last_name_in_path)) {
+    return false;
+  };
   /* END TASK: Subdirectories */
 
   // TODO: Figure out how to not remove directories that are not empty and not currently opened by a process.
