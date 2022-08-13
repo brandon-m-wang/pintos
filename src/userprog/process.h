@@ -53,6 +53,7 @@ typedef struct active_file {
   int fd;                /* File descriptor of file */
   struct file* file;     /* Pointer to file struct */
   struct list_elem elem; /* Used to represent struct as an element in a PintOS list */
+  struct dir* dir; /* Pointer to dir struct, if active_file is a directory */
 } active_file;
 
 /* struct available_fd represents a single file descriptor that can either belong to a file in the process or not. */

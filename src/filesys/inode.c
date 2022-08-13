@@ -25,6 +25,11 @@ struct inode_disk {
 
   /* Project 3 Task 2 END */
 
+  /* START TASK: Subdirectories */
+  block_sector_t parent_dir;       /* Pointer to parent dir sector */
+  bool is_dir;                     /* Indicates if inode is file or dir */
+  /* END TASK: Subdirectories */
+
   off_t length;         /* File size in bytes. */
   unsigned magic;       /* Magic number. */
 };
@@ -339,7 +344,7 @@ void inode_init(void) {
    device.
    Returns true if successful.
    Returns false if memory or disk allocation fails. */
-bool inode_create(block_sector_t sector, off_t length) {
+bool inode_create(block_sector_t sector, off_t length, bool is_dir) {
   struct inode_disk* disk_inode = NULL;
   bool success = false;
 
@@ -357,6 +362,10 @@ bool inode_create(block_sector_t sector, off_t length) {
     size_t sectors = bytes_to_sectors(length);
     disk_inode->length = length;
     disk_inode->magic = INODE_MAGIC;
+
+    /* START TASK: Subdirectories */
+    disk_inode->is_dir = is_dir;
+    /* END TASK: Subdirectories */
 
     // Allocate sector for single indirect block
     bool result = free_map_allocate(1, &disk_inode->single_indirect_block);
