@@ -21,6 +21,7 @@ bool valid_pointer(void* ptr, size_t size);
 bool valid_string(char* str);
 void exit_with_error(uint32_t* eax, int error_code);
 struct process* process_current(void);
+bool chdir(const char* dir);
 
 /* END TASK: File Operation Syscalls */
 

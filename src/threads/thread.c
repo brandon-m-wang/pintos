@@ -198,7 +198,7 @@ tid_t thread_create(const char* name, int priority, thread_func* function, void*
   init_thread(t, name, priority);
   tid = t->tid = allocate_tid();
   /* START TASK: Subdirectories */
-  t->cwd = thread_current()->cwd;
+  t->cwd = dir_reopen(thread_current()->cwd);
   /* END TASK: Subdirectories */
 
   /* Task 2: Process Control Syscalls */

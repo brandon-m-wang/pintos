@@ -26,7 +26,7 @@ static void syscall_handler(struct intr_frame* f UNUSED) {
   }
 
   /* Get the main process struct. */
-  // struct process* main_pcb = process_current();
+  struct process* main_pcb = process_current();
 
   if (args[0] == SYS_PRACTICE) {
     f->eax = args[1] + 1;
@@ -45,6 +45,7 @@ static void syscall_handler(struct intr_frame* f UNUSED) {
     if (!valid_pointer((void*)args + 4, sizeof(uint32_t*)) || !valid_string((char*)args[1])) {
       exit_with_error(&f->eax, -1);
     }
+    
     f->eax = process_execute((char*)args[1]);
   } else if (args[0] == SYS_WAIT) {
     f->eax = process_wait(args[1]);
@@ -54,7 +55,9 @@ static void syscall_handler(struct intr_frame* f UNUSED) {
       exit_with_error(&f->eax, -1);
     }
 
+    lock_acquire(&main_pcb->file_syscalls_lock);
     f->eax = create((char*)args[1], args[2], false);
+    lock_release(&main_pcb->file_syscalls_lock);
 
   } else if (args[0] == SYS_REMOVE) {
     /* Verify char* pointer */
@@ -62,7 +65,9 @@ static void syscall_handler(struct intr_frame* f UNUSED) {
       exit_with_error(&f->eax, -1);
     }
 
+    lock_acquire(&main_pcb->file_syscalls_lock);
     f->eax = remove((char*)args[1]);
+    lock_release(&main_pcb->file_syscalls_lock);
 
   } else if (args[0] == SYS_OPEN) {
     /* Verify char* pointer */
@@ -70,11 +75,15 @@ static void syscall_handler(struct intr_frame* f UNUSED) {
       exit_with_error(&f->eax, -1);
     }
 
+    lock_acquire(&main_pcb->file_syscalls_lock);
     f->eax = open((char*)args[1]);
+    lock_release(&main_pcb->file_syscalls_lock);
 
   } else if (args[0] == SYS_FILESIZE) {
 
+    lock_acquire(&main_pcb->file_syscalls_lock);
     f->eax = filesize(args[1]);
+    lock_release(&main_pcb->file_syscalls_lock);
 
   } else if (args[0] == SYS_READ) {
     /* Verify buffer pointer */
@@ -82,7 +91,9 @@ static void syscall_handler(struct intr_frame* f UNUSED) {
       exit_with_error(&f->eax, -1);
     }
 
+    lock_acquire(&main_pcb->file_syscalls_lock);
     f->eax = read(args[1], (void*)args[2], args[3]);
+    lock_release(&main_pcb->file_syscalls_lock);
 
   } else if (args[0] == SYS_WRITE) {
     /* Verify buffer pointer */
@@ -90,19 +101,27 @@ static void syscall_handler(struct intr_frame* f UNUSED) {
       exit_with_error(&f->eax, -1);
     }
 
+    lock_acquire(&main_pcb->file_syscalls_lock);
     f->eax = write(args[1], (void*)args[2], args[3]);
+    lock_release(&main_pcb->file_syscalls_lock);
 
   } else if (args[0] == SYS_SEEK) {
-
+    
+    lock_acquire(&main_pcb->file_syscalls_lock);
     seek(args[1], args[2]);
+    lock_release(&main_pcb->file_syscalls_lock);
 
   } else if (args[0] == SYS_TELL) {
-
+    
+    lock_acquire(&main_pcb->file_syscalls_lock);
     f->eax = tell(args[1]);
+    lock_release(&main_pcb->file_syscalls_lock);
 
   } else if (args[0] == SYS_CLOSE) {
 
+    lock_acquire(&main_pcb->file_syscalls_lock);
     close(args[1]);
+    lock_release(&main_pcb->file_syscalls_lock);
 
   } else if (args[0] == SYS_COMPUTE_E) {
     /* Verify args pointer */
@@ -111,10 +130,13 @@ static void syscall_handler(struct intr_frame* f UNUSED) {
     }
 
     f->eax = sys_sum_to_e((int)args[1]);
+
   } else if (args[0] == SYS_CHDIR) {
     if (!valid_pointer((void*)args + 4, sizeof(uint32_t*)) || !valid_string((char*)args[1])) {
       exit_with_error(&f->eax, -1);
     }
+
+    f->eax = filesys_chdir((char*)args[1]);
 
   } else if (args[0] == SYS_MKDIR) {
     if (!valid_pointer((void*)args + 4, sizeof(uint32_t*)) || !valid_string((char*)args[1])) {
@@ -124,6 +146,16 @@ static void syscall_handler(struct intr_frame* f UNUSED) {
     f->eax = create((char*)args[1], 2 * 20, true);
   }
 }
+
+/* START TASK: Subdirectories */
+bool chdir(const char* dir) {
+  return filesys_chdir(dir);
+}
+
+bool readdir(int fd, char* name) {
+  return filesys_readdir(fd, name);
+}
+/* END TASK: Subdirectories */
 
 /* START TASK: File Operation Syscalls */
 
@@ -232,7 +264,7 @@ int read(int fd, void* buffer, unsigned size) {
   If it is found, then read size bytes to the buffer 
   from the file and return the number of bytes read.
   Otherwise if an active_file matching fd is not found, return -1.*/
-  if (target_active_file != NULL) {
+  if (target_active_file != NULL && target_active_file->dir == NULL) {
     return file_read(target_active_file->file, buffer, size);
   } else {
     return -1;
@@ -258,7 +290,7 @@ int write(int fd, const void* buffer, unsigned size) {
   If it is found, then write size bytes from the buffer 
   into the file and return the number of bytes written. 
   Otherwise if an active_file matching fd is not found, return -1.*/
-  if (target_active_file != NULL) {
+  if (target_active_file != NULL && target_active_file->dir == NULL) {
     return file_write(target_active_file->file, buffer, size);
   } else {
     return -1;
@@ -324,7 +356,17 @@ void close(int fd) {
       list_push_front(available_fds, &(new_fd->elem));
 
       /* Close struct file */
-      file_close(temp_file->file);
+      // file_close(temp_file->file);
+
+      /* START TASK: Subdirectories */
+      /* Close struct directory if fd is a directory. */
+      if (active_file_is_dir(temp_file)) {
+        dir_close(temp_file->dir);
+      } else {
+        /* Close struct file */
+        file_close(temp_file->file);
+      }
+      /* END TASK: Subdirectories */
 
       /* Remove file from process's active_files list*/
       list_remove(&(temp_file->elem));
