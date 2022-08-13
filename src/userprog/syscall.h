@@ -7,7 +7,7 @@ void syscall_init(void);
 
 /* START TASK: File Operation Syscalls */
 
-bool create(const char* file, unsigned initial_size);
+bool create(const char* file, unsigned initial_size, bool is_dir);
 bool remove(const char* file);
 int open(const char* file);
 int filesize(int fd);

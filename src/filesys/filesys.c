@@ -65,10 +65,10 @@ bool filesys_create(const char* name, off_t initial_size, bool is_dir) {
   
   /* START TASK: Subdirectories */
   if (is_dir) {
-    struct inode* new_dir_inode = inode_open(inode_sector);
-    struct dir* new_dir_struct = dir_open(new_dir_inode);
+    struct inode* new_dir_inode = inode_open(inode_sector); 
+    struct dir* new_dir_struct = dir_open(new_dir_inode); /* newly created dir */
 
-    struct inode *dir_inode = dir_get_inode(dir);
+    struct inode *dir_inode = dir_get_inode(dir); /* right-before dir */
     bool success = (dir_add(new_dir_struct, ".", inode_sector) && dir_add(new_dir_struct, "..", inode_get_sector(dir_inode)));
     dir_close(new_dir_struct);
     if (!success) {
@@ -113,7 +113,12 @@ bool filesys_remove(const char* name) {
 struct dir* get_directory(const char* path, bool mkdir) {
   char part[NAME_MAX + 1];
   struct dir* prev = NULL;
-  struct dir* cur = thread_current()->cwd;
+  struct dir* cur;
+  if (path[0] == '/') {
+    cur = dir_open_root();
+  } else {
+    cur = thread_current()->cwd;
+  }
   struct inode *temp_inode;
 
   int count = 0;
