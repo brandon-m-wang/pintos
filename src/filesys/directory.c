@@ -157,7 +157,9 @@ bool dir_add(struct dir* dir, const char* name, block_sector_t inode_sector) {
   if (success) {
 	  struct inode *new_dir = inode_open(inode_sector);
     inode_set_parent(new_dir, dir->inode);
-    inode_inc_files_contained(dir->inode);
+    if (name != "." || name != "..") {
+      inode_inc_files_contained(dir->inode);
+    }
     /* Close inode after opening */
     inode_close(new_dir);
   }
@@ -187,6 +189,16 @@ bool dir_remove(struct dir* dir, const char* name) {
   inode = inode_open(e.inode_sector);
   if (inode == NULL)
     goto done;
+
+  /* If e is a directory, only remove if there are zero files in the directory */
+  if (e.data.is_dir && e->files_contained > 0) {
+    goto done;
+  }
+
+  /* If e is a directory, only remove if there are no proccesses with the directory open. */
+  if (e.data.is_dir && e->open_cnt > 0) {
+    goto done;
+  }
 
   /* Erase directory entry. */
   e.in_use = false;
