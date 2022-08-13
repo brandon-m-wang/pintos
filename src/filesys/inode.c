@@ -52,7 +52,7 @@ typedef struct block {
 block buffer_cache[64];
 
 /* Lock for iterating through or replacing an item in the buffer cache. */
-static struct lock buffer_cache_lock;
+struct lock buffer_cache_lock;
 
 /* Initializes buffer cache at system startup. */
 void init_buffer_cache(void) {
@@ -74,6 +74,8 @@ void init_buffer_cache(void) {
     lock_init(&(cache_entry->b_lock));
   }
 
+  /* Intiialize clock_pos */
+  clock_pos = 0;
   /* Initialize buffer cache lock */
   lock_init(&buffer_cache_lock);
 }
@@ -153,7 +155,7 @@ int replace_block(block_sector_t sector) {
 void cache_read(block_sector_t sector, void *buffer) {
   /* Acquire lock to iterate through buffer cache and evict if necessary */
   lock_acquire(&buffer_cache_lock);
-  block *cache_entry;
+  block *cache_entry = NULL;
 
   /* Find entry in buffer cache */
   for (int i = 0; i < 64; i++) {
@@ -168,15 +170,6 @@ void cache_read(block_sector_t sector, void *buffer) {
   if (cache_entry == NULL) {
     int new_entry_idx = replace_block(sector);
     cache_entry = &buffer_cache[new_entry_idx];
-    
-    /* Check if data changed after acquiring the cache entry's lock */
-    lock_acquire(&(cache_entry->b_lock));
-    if (cache_entry->sector != sector) {
-      /* Data changed, search buffer cache again. */
-      lock_release(&(cache_entry->b_lock));
-      lock_release(&buffer_cache_lock);
-      return cache_read(sector, buffer);
-    }
   }
 
   lock_release(&buffer_cache_lock);
@@ -207,7 +200,7 @@ void cache_read(block_sector_t sector, void *buffer) {
 void cache_write(block_sector_t sector, void *buffer) {
   /* Acquire lock to iterate through buffer cache and evict if necessary */
   lock_acquire(&buffer_cache_lock);
-  block *cache_entry;
+  block *cache_entry = NULL;
 
   /* Find entry in buffer cache */
   for (int i = 0; i < 64; i++) {
@@ -222,15 +215,6 @@ void cache_write(block_sector_t sector, void *buffer) {
   if (cache_entry == NULL) {
     int new_entry_idx = replace_block(sector);
     cache_entry = &buffer_cache[new_entry_idx];
-    
-    /* Check if data changed after acquiring the cache entry's lock */
-    lock_acquire(&(cache_entry->b_lock));
-    if (cache_entry->sector != sector) {
-      /* Data changed, search buffer cache again. */
-      lock_release(&(cache_entry->b_lock));
-      lock_release(&buffer_cache_lock);
-      return cache_write(sector, buffer);
-    }
   }
 
   lock_release(&buffer_cache_lock);

@@ -19,6 +19,10 @@ void filesys_init(bool format) {
   if (fs_device == NULL)
     PANIC("No file system device found, can't initialize file system.");
 
+  /* START TASK: Buffer Cache */
+  init_buffer_cache();
+  /* END TASK: Buffer Cache */
+
   inode_init();
   free_map_init();
 
@@ -26,10 +30,6 @@ void filesys_init(bool format) {
     do_format();
 
   free_map_open();
-
-  /* START TASK: Buffer Cache */
-  init_buffer_cache();
-  /* END TASK: Buffer Cache */
 }
 
 /* Shuts down the file system module, writing any unwritten data
