@@ -66,6 +66,8 @@ void init_buffer_cache(void) {
     cache_entry->valid = false;
     /* Set dirty bit to false */
     cache_entry->dirty = false;
+    /* Set clock state to 0 (ready for eviction) */
+    cache_entry->clock_state = 0;
     /* Initialize block's lock */
     lock_init(&(cache_entry->b_lock));
   }
@@ -154,7 +156,7 @@ void cache_read(block_sector_t sector, void *buffer) {
   /* Find entry in buffer cache */
   for (int i = 0; i < 64; i++) {
     block* temp_entry = &buffer_cache[i];
-    if (temp_entry->sector == sector) {
+    if (temp_entry->valid && temp_entry->sector == sector) {
       cache_entry = temp_entry;
       break;
     }
@@ -208,7 +210,7 @@ void cache_write(block_sector_t sector, void *buffer) {
   /* Find entry in buffer cache */
   for (int i = 0; i < 64; i++) {
     block* temp_entry = &buffer_cache[i];
-    if (temp_entry->sector == sector) {
+    if (temp_entry->valid && temp_entry->sector == sector) {
       cache_entry = temp_entry;
       break;
     }
