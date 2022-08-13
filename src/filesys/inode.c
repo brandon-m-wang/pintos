@@ -68,6 +68,8 @@ void init_buffer_cache(void) {
     cache_entry->dirty = false;
     /* Set clock state to 0 (ready for eviction) */
     cache_entry->clock_state = 0;
+    /* Set sector's default value to 0. */
+    cache_entry->sector = 0;
     /* Initialize block's lock */
     lock_init(&(cache_entry->b_lock));
   }
