@@ -7,6 +7,8 @@
 #include "filesys/inode.h"
 #include "filesys/directory.h"
 #include "threads/thread.h"
+#include "userprog/syscall.h"
+#include "userprog/process.h"
 
 /* Partition that contains the file system. */
 struct block* fs_device;

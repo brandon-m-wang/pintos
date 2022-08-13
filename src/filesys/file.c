@@ -137,7 +137,3 @@ off_t file_tell(struct file* file) {
 bool is_file_dir(struct file* file) {
   return is_inode_dir(file->inode);
 }
-
-struct inode* file_get_inode(struct file* file) {
-  return file->inode;
-}

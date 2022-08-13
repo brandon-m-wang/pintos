@@ -18,5 +18,6 @@ struct file* filesys_open(const char* name);
 bool filesys_remove(const char* name);
 bool filesys_chdir(const char* dir);
 bool filesys_readdir(int fd, char* name);
+bool get_last_in_path(const char* path, char* buffer);
 
 #endif /* filesys/filesys.h */
