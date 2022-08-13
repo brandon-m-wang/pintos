@@ -378,6 +378,8 @@ bool inode_create(block_sector_t sector, off_t length, bool is_dir) {
   if (disk_inode != NULL) {
 
     /* Project 3 Task 2 START */
+    static char zeros[BLOCK_SECTOR_SIZE];
+
     struct list allocated_sectors;
     list_init(&allocated_sectors);
     struct block_list_elem *block_elem;
@@ -396,6 +398,10 @@ bool inode_create(block_sector_t sector, off_t length, bool is_dir) {
       rollback(&allocated_sectors);
       return false;
     }
+
+    // Write allocated sector to disk
+    cache_write(disk_inode->single_indirect_block, zeros);
+
     block_elem = malloc(sizeof(struct block_list_elem));
     block_elem->block_ptr = &disk_inode->single_indirect_block;
     list_push_back(&allocated_sectors, &block_elem->elem);
@@ -406,6 +412,10 @@ bool inode_create(block_sector_t sector, off_t length, bool is_dir) {
       rollback(&allocated_sectors);
       return false;
     }
+
+    // Write allocated sector to disk
+    cache_write(disk_inode->double_indirect_block, zeros);
+
     block_elem = malloc(sizeof(struct block_list_elem));
     block_elem->block_ptr = &disk_inode->double_indirect_block;
     list_push_back(&allocated_sectors, &block_elem->elem);
@@ -420,6 +430,10 @@ bool inode_create(block_sector_t sector, off_t length, bool is_dir) {
           rollback(&allocated_sectors);
           return false;
         }
+
+        // Write allocated sector to disk
+        cache_write(disk_inode->direct_blocks[i], zeros);
+
         block_elem = malloc(sizeof(struct block_list_elem));
         block_elem->block_ptr = &disk_inode->direct_blocks[i];
         list_push_back(&allocated_sectors, &block_elem->elem);
@@ -437,6 +451,10 @@ bool inode_create(block_sector_t sector, off_t length, bool is_dir) {
           rollback(&allocated_sectors);
           return false;
         }
+
+        // Write allocated sector to disk
+        cache_write(indirect_block->indirect_blocks[i - 128], zeros);
+
         block_elem = malloc(sizeof(struct block_list_elem));
         block_elem->block_ptr = &indirect_block->indirect_blocks[i - 128];
         list_push_back(&allocated_sectors, &block_elem->elem);
@@ -453,6 +471,10 @@ bool inode_create(block_sector_t sector, off_t length, bool is_dir) {
           rollback(&allocated_sectors);
           return false;
         }
+
+        // Write allocated sector to disk
+        cache_write(double_indirect_block->indirect_blocks[(i - 250) / 128], zeros);
+
         block_elem = malloc(sizeof(struct block_list_elem));
         block_elem->block_ptr = &double_indirect_block->indirect_blocks[(i - 250) / 128];
         list_push_back(&allocated_sectors, &block_elem->elem);
@@ -467,6 +489,10 @@ bool inode_create(block_sector_t sector, off_t length, bool is_dir) {
           rollback(&allocated_sectors);
           return false;
         }
+
+        // Write allocated sector to disk
+        cache_write(indirect_block->indirect_blocks[(i - 250) % 128], zeros);
+
         block_elem = malloc(sizeof(struct block_list_elem));
         block_elem->block_ptr = &indirect_block->indirect_blocks[(i - 250) % 128];
         list_push_back(&allocated_sectors, &block_elem->elem);
@@ -677,6 +703,8 @@ off_t inode_write_at(struct inode* inode, const void* buffer_, off_t size, off_t
   off_t bytes_written = 0;
   uint8_t* bounce = NULL;
 
+  static char zeros[BLOCK_SECTOR_SIZE];
+
   if (inode->deny_write_cnt)
     return 0;
 
@@ -692,27 +720,6 @@ off_t inode_write_at(struct inode* inode, const void* buffer_, off_t size, off_t
     size_t sectors = bytes_to_sectors(inode->data.length + offset + size);
     off_t length = inode->data.length;
 
-
-     // Allocate sector for single indirect block
-    bool result = free_map_allocate(1, &disk_inode.single_indirect_block);
-    if (result == false) {
-      rollback(&allocated_sectors);
-      return false;
-    }
-    block_elem = malloc(sizeof(struct block_list_elem));
-    block_elem->block_ptr = &disk_inode.single_indirect_block;
-    list_push_back(&allocated_sectors, &block_elem->elem);
-
-    // Allocate sector for double indirect block
-    result = free_map_allocate(1, &disk_inode.double_indirect_block);
-    if (result == false) {
-      rollback(&allocated_sectors);
-      return false;
-    }
-    block_elem = malloc(sizeof(struct block_list_elem));
-    block_elem->block_ptr = &disk_inode.double_indirect_block;
-    list_push_back(&allocated_sectors, &block_elem->elem);
-
     // Allocate sectors within direct block, single indirect block, and double indirect block
     for (int i = length; i < sectors; i++) {
       if (i < 122) {
@@ -723,6 +730,10 @@ off_t inode_write_at(struct inode* inode, const void* buffer_, off_t size, off_t
           rollback(&allocated_sectors);
           return false;
         }
+
+        // Write allocated sector to disk
+        cache_write(disk_inode.direct_blocks[i], zeros);
+
         block_elem = malloc(sizeof(struct block_list_elem));
         block_elem->block_ptr = &disk_inode.direct_blocks[i];
         list_push_back(&allocated_sectors, &block_elem->elem);
@@ -740,6 +751,10 @@ off_t inode_write_at(struct inode* inode, const void* buffer_, off_t size, off_t
           rollback(&allocated_sectors);
           return false;
         }
+
+        // Write allocated sector to disk
+        cache_write(indirect_block->indirect_blocks[i - 128], zeros);
+
         block_elem = malloc(sizeof(struct block_list_elem));
         block_elem->block_ptr = &indirect_block->indirect_blocks[i - 128];
         list_push_back(&allocated_sectors, &block_elem->elem);
@@ -757,6 +772,10 @@ off_t inode_write_at(struct inode* inode, const void* buffer_, off_t size, off_t
           rollback(&allocated_sectors);
           return false;
         }
+
+        // Write allocated sector to disk
+        cache_write(double_indirect_block->indirect_blocks[(i - 250) / 128], zeros);
+
         block_elem = malloc(sizeof(struct block_list_elem));
         block_elem->block_ptr = &double_indirect_block->indirect_blocks[(i - 250) / 128];
         list_push_back(&allocated_sectors, &block_elem->elem);
@@ -771,6 +790,10 @@ off_t inode_write_at(struct inode* inode, const void* buffer_, off_t size, off_t
           rollback(&allocated_sectors);
           return false;
         }
+
+        // Write allocated sector to disk
+        cache_write(indirect_block->indirect_blocks[(i - 250) % 128], zeros);
+
         block_elem = malloc(sizeof(struct block_list_elem));
         block_elem->block_ptr = &indirect_block->indirect_blocks[(i - 250) % 128];
         list_push_back(&allocated_sectors, &block_elem->elem);
