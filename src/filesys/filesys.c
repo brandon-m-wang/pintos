@@ -75,6 +75,7 @@ bool filesys_create(const char* name, off_t initial_size, bool is_dir) {
     struct inode* new_dir_inode = inode_open(inode_sector); 
     struct dir* new_dir_struct = dir_open(new_dir_inode); /* newly created dir */
 
+    /* Add . and .. to newly created directory. */
     struct inode *dir_inode = dir_get_inode(dir); /* right-before dir */
     bool success = (dir_add(new_dir_struct, ".", inode_sector) && dir_add(new_dir_struct, "..", inode_get_sector(dir_inode)));
     dir_close(new_dir_struct);
