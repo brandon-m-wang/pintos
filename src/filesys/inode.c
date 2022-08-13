@@ -34,7 +34,6 @@ struct inode_disk {
   unsigned magic;       /* Magic number. */
 };
 
-
 /* Project 3 Task 2 START */
 
 /* a single indirect block */
