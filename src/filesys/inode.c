@@ -350,12 +350,12 @@ struct block_list_elem {
 
 void rollback(struct list *allocated_sectors) {
   struct block_list_elem *block_elem;
-  struct list_elem *iter;
-  for (iter = list_begin(allocated_sectors); iter != list_end(allocated_sectors);
-       iter = list_next(iter)) {
-        block_elem = list_entry(iter, struct block_list_elem, elem);
-        free_map_release(*block_elem->block_ptr, 1);
-        free(block_elem);
+  struct list_elem *iter = list_begin(&allocated_sectors);
+  while (iter != list_end(&allocated_sectors)) {
+    block_elem = list_entry(iter, struct block_list_elem, elem);
+    iter = list_next(iter);
+    free_map_release(*block_elem->block_ptr, 1);
+    free(block_elem);
   }
 }
 
@@ -480,11 +480,11 @@ bool inode_create(block_sector_t sector, off_t length, bool is_dir) {
     cache_write(sector, (void*) disk_inode);
     
     // Free the malloc'd block_elems
-    struct list_elem *iter;
-    for (iter = list_begin(&allocated_sectors); iter != list_end(&allocated_sectors);
-        iter = list_next(iter)) {
-        block_elem = list_entry(iter, struct block_list_elem, elem);
-        free(block_elem);
+    struct list_elem *iter = list_begin(&allocated_sectors);
+    while (iter != list_end(&allocated_sectors)) {
+      block_elem = list_entry(iter, struct block_list_elem, elem);
+      iter = list_next(iter);
+      free(block_elem);
     }
     /* Project 3 Task 2 END */
 
