@@ -54,7 +54,7 @@ static void syscall_handler(struct intr_frame* f UNUSED) {
       exit_with_error(&f->eax, -1);
     }
 
-    f->eax = create((char*)args[1], args[2]);
+    f->eax = create((char*)args[1], args[2], false);
 
   } else if (args[0] == SYS_REMOVE) {
     /* Verify char* pointer */
@@ -112,15 +112,16 @@ static void syscall_handler(struct intr_frame* f UNUSED) {
 
     f->eax = sys_sum_to_e((int)args[1]);
   } else if (args[0] == SYS_CHDIR) {
-    if (!valid_string(args[1])) {
+    if (!valid_pointer((void*)args + 4, sizeof(uint32_t*)) || !valid_string(args[1])) {
       exit_with_error(&f->eax, -1);
     }
 
   } else if (args[0] == SYS_MKDIR) {
-    if (!valid_string(args[1])) {
+    if (!valid_pointer((void*)args + 4, sizeof(uint32_t*)) || !valid_string(args[1])) {
       exit_with_error(&f->eax, -1);
     }
-    
+
+    f->eax = create(args[1], 0, true);
   }
 }
 
@@ -128,14 +129,14 @@ static void syscall_handler(struct intr_frame* f UNUSED) {
 
 /* Creates a new file called file initially initial_size
    bytes in size. Returns true if successful, false otherwise. */
-bool create(const char* file, unsigned initial_size) {
+bool create(const char* file, unsigned initial_size, bool is_dir) {
   /* Check for valid pointer. */
   if (file == NULL) {
     return false;
   }
 
   /* Call filesys_create */
-  bool return_code = filesys_create(file, initial_size, false);
+  bool return_code = filesys_create(file, initial_size, is_dir);
   return return_code;
 }
 
