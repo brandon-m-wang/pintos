@@ -19,7 +19,7 @@ struct inode_disk {
 
   /* Project 3 Task 2 START */
 
-  block_sector_t direct_blocks[124];    /* direct pointers to data */
+  block_sector_t direct_blocks[122];    /* direct pointers to data */
   block_sector_t single_indirect_block; /* points to indirect_block struct which points to data */
   block_sector_t double_indirect_block; /* pointer to indirect_block struct that points to more indirect_blocks structs that point to data */
 
@@ -291,7 +291,7 @@ static block_sector_t byte_to_sector(const struct inode* inode, off_t pos) {
   // Fetch inode_disk struct
   struct inode_disk inode_data = inode->data;
 
-  if (block_index < 124) {
+  if (block_index < 122) {
     // Case where we can fetch block from direct blocks
     return inode_data.direct_blocks[block_index];
   } else if (block_index < 252) {
@@ -381,7 +381,7 @@ bool inode_create(block_sector_t sector, off_t length, bool is_dir) {
 
     // Allocate sectors within direct block, single indirect block, and double indirect block
     for (int i = 0; i < sectors; i++) {
-      if (i < 124) {
+      if (i < 122) {
         // Case where we can allocate sectors to direct blocks
 
         bool result = free_map_allocate(1, &disk_inode->direct_blocks[i]);
@@ -514,7 +514,7 @@ void inode_close(struct inode* inode) {
 
       // Allocate sectors within direct block, single indirect block, and double indirect block
       for (int i = 0; i < sectors; i++) {
-        if (i < 124) {
+        if (i < 122) {
           // Case where we can deallocate direct block sectors
 
           free_map_release(disk_inode.direct_blocks[i], 1);
