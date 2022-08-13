@@ -340,6 +340,9 @@ void inode_init(void) {
 }
 
 /* Rollback */
+
+void rollback(struct list *allocated_sectors);
+
 struct block_list_elem {
   block_sector_t *block_ptr;
   struct list_elem elem;
@@ -351,7 +354,7 @@ void rollback(struct list *allocated_sectors) {
   for (iter = list_begin(allocated_sectors); iter != list_end(allocated_sectors);
        iter = list_next(iter)) {
         block_elem = list_entry(iter, struct block_list_elem, elem);
-        free_map_release(block_elem->block_ptr, 1);
+        free_map_release(*block_elem->block_ptr, 1);
         free(block_elem);
   }
 }
