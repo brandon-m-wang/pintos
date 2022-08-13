@@ -390,7 +390,7 @@ void close(int fd) {
 
       /* START TASK: Subdirectories */
       /* Close struct directory if fd is a directory. */
-      if (active_file_is_dir(temp_file)) {
+      if (temp_file->dir != NULL) {
         dir_close(temp_file->dir);
       } else {
         /* Close struct file */

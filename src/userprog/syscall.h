@@ -22,6 +22,7 @@ bool valid_string(char* str);
 void exit_with_error(uint32_t* eax, int error_code);
 struct process* process_current(void);
 bool chdir(const char* dir);
+bool readdir(int fd, char* name);
 
 /* END TASK: File Operation Syscalls */
 
