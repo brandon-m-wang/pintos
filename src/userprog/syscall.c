@@ -221,6 +221,8 @@ int open(const char* file) {
   if (is_dir) {
     struct dir* open_dir = dir_open(file_get_inode(opened_file));
     new_open_file->dir = open_dir;
+  } else {
+    new_open_file->dir = NULL;
   }
   /* End Subdirectories */
 
