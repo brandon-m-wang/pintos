@@ -22,7 +22,13 @@ struct dir_entry {
 /* Creates a directory with space for ENTRY_CNT entries in the
    given SECTOR.  Returns true if successful, false on failure. */
 bool dir_create(block_sector_t sector, size_t entry_cnt) {
-  return inode_create(sector, entry_cnt * sizeof(struct dir_entry), true);
+  bool success = inode_create(sector, entry_cnt * sizeof(struct dir_entry), true);
+  struct inode* root_inode = inode_open(sector);
+  struct dir* root_dir = dir_open(root_inode);
+
+  success = (dir_add(root_dir, ".", sector) && dir_add(root_dir, "..", sector));
+  dir_close(root_dir);
+  return success;
 }
 
 /* Opens and returns the directory for the given INODE, of which
@@ -107,7 +113,7 @@ bool dir_lookup(const struct dir* dir, const char* name, struct inode** inode) {
 }
 
 /* Adds a file named NAME to DIR, which must not already contain a
-   file by that name.  The file's inode is in sector
+   file by that name. The file's inode is in sector
    INODE_SECTOR.
    Returns true if successful, false on failure.
    Fails if NAME is invalid (i.e. too long) or a disk or memory
@@ -144,6 +150,16 @@ bool dir_add(struct dir* dir, const char* name, block_sector_t inode_sector) {
   strlcpy(e.name, name, sizeof e.name);
   e.inode_sector = inode_sector;
   success = inode_write_at(dir->inode, &e, sizeof e, ofs) == sizeof e;
+
+  /* START TASK: Subdirectories */
+  /* Set the parent_dir of new_dir's struct data. */
+  if (success) {
+	  struct inode *new_dir = inode_open(inode_sector);
+    inode_set_parent(new_dir, dir->inode);
+    /* Close inode after opening */
+    inode_close(new_dir);
+  }
+  /* END TASK: Subdirectories */
 
 done:
   return success;

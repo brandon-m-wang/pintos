@@ -26,7 +26,7 @@ static void syscall_handler(struct intr_frame* f UNUSED) {
   }
 
   /* Get the main process struct. */
-  struct process* main_pcb = process_current();
+  // struct process* main_pcb = process_current();
 
   if (args[0] == SYS_PRACTICE) {
     f->eax = args[1] + 1;
@@ -54,9 +54,7 @@ static void syscall_handler(struct intr_frame* f UNUSED) {
       exit_with_error(&f->eax, -1);
     }
 
-    lock_acquire(&main_pcb->file_syscalls_lock);
-    f->eax = create((char*)args[1], args[2]);
-    lock_release(&main_pcb->file_syscalls_lock);
+    f->eax = create((char*)args[1], args[2], false);
 
   } else if (args[0] == SYS_REMOVE) {
     /* Verify char* pointer */
@@ -64,9 +62,7 @@ static void syscall_handler(struct intr_frame* f UNUSED) {
       exit_with_error(&f->eax, -1);
     }
 
-    lock_acquire(&main_pcb->file_syscalls_lock);
     f->eax = remove((char*)args[1]);
-    lock_release(&main_pcb->file_syscalls_lock);
 
   } else if (args[0] == SYS_OPEN) {
     /* Verify char* pointer */
@@ -74,15 +70,11 @@ static void syscall_handler(struct intr_frame* f UNUSED) {
       exit_with_error(&f->eax, -1);
     }
 
-    lock_acquire(&main_pcb->file_syscalls_lock);
     f->eax = open((char*)args[1]);
-    lock_release(&main_pcb->file_syscalls_lock);
 
   } else if (args[0] == SYS_FILESIZE) {
 
-    lock_acquire(&main_pcb->file_syscalls_lock);
     f->eax = filesize(args[1]);
-    lock_release(&main_pcb->file_syscalls_lock);
 
   } else if (args[0] == SYS_READ) {
     /* Verify buffer pointer */
@@ -90,9 +82,7 @@ static void syscall_handler(struct intr_frame* f UNUSED) {
       exit_with_error(&f->eax, -1);
     }
 
-    lock_acquire(&main_pcb->file_syscalls_lock);
     f->eax = read(args[1], (void*)args[2], args[3]);
-    lock_release(&main_pcb->file_syscalls_lock);
 
   } else if (args[0] == SYS_WRITE) {
     /* Verify buffer pointer */
@@ -100,27 +90,19 @@ static void syscall_handler(struct intr_frame* f UNUSED) {
       exit_with_error(&f->eax, -1);
     }
 
-    lock_acquire(&main_pcb->file_syscalls_lock);
     f->eax = write(args[1], (void*)args[2], args[3]);
-    lock_release(&main_pcb->file_syscalls_lock);
 
   } else if (args[0] == SYS_SEEK) {
 
-    lock_acquire(&main_pcb->file_syscalls_lock);
     seek(args[1], args[2]);
-    lock_release(&main_pcb->file_syscalls_lock);
 
   } else if (args[0] == SYS_TELL) {
 
-    lock_acquire(&main_pcb->file_syscalls_lock);
     f->eax = tell(args[1]);
-    lock_release(&main_pcb->file_syscalls_lock);
 
   } else if (args[0] == SYS_CLOSE) {
 
-    lock_acquire(&main_pcb->file_syscalls_lock);
     close(args[1]);
-    lock_release(&main_pcb->file_syscalls_lock);
 
   } else if (args[0] == SYS_COMPUTE_E) {
     /* Verify args pointer */
@@ -130,15 +112,16 @@ static void syscall_handler(struct intr_frame* f UNUSED) {
 
     f->eax = sys_sum_to_e((int)args[1]);
   } else if (args[0] == SYS_CHDIR) {
-    if (!valid_string(args[1])) {
+    if (!valid_pointer((void*)args + 4, sizeof(uint32_t*)) || !valid_string((char*)args[1])) {
       exit_with_error(&f->eax, -1);
     }
 
   } else if (args[0] == SYS_MKDIR) {
-    if (!valid_string(args[1])) {
+    if (!valid_pointer((void*)args + 4, sizeof(uint32_t*)) || !valid_string((char*)args[1])) {
       exit_with_error(&f->eax, -1);
     }
-    
+
+    f->eax = create((char*)args[1], 2 * 20, true);
   }
 }
 
@@ -146,14 +129,14 @@ static void syscall_handler(struct intr_frame* f UNUSED) {
 
 /* Creates a new file called file initially initial_size
    bytes in size. Returns true if successful, false otherwise. */
-bool create(const char* file, unsigned initial_size) {
+bool create(const char* file, unsigned initial_size, bool is_dir) {
   /* Check for valid pointer. */
   if (file == NULL) {
     return false;
   }
 
   /* Call filesys_create */
-  bool return_code = filesys_create(file, initial_size, false);
+  bool return_code = filesys_create(file, initial_size, is_dir);
   return return_code;
 }
 

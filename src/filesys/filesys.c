@@ -6,7 +6,6 @@
 #include "filesys/free-map.h"
 #include "filesys/inode.h"
 #include "filesys/directory.h"
-
 #include "threads/thread.h"
 
 /* Partition that contains the file system. */
@@ -15,6 +14,7 @@ struct block* fs_device;
 static void do_format(void);
 
 static int get_next_part(char part[NAME_MAX + 1], const char** srcp);
+struct dir* get_directory(const char* path, bool mkdir);
 
 /* Initializes the file system module.
    If FORMAT is true, reformats the file system. */
@@ -54,8 +54,7 @@ bool filesys_create(const char* name, off_t initial_size, bool is_dir) {
   block_sector_t inode_sector = 0;
   
   /* START TASK: Subdirectories */
-  
-  struct dir* dir = dir_open(thread_current()->cwd->inode); /* Should be directory of last name in path */
+  struct dir *dir = get_directory(name, true);
   /* END TASK: Subdirectories */
 
   bool success = (dir != NULL && free_map_allocate(1, &inode_sector) &&
@@ -66,16 +65,17 @@ bool filesys_create(const char* name, off_t initial_size, bool is_dir) {
   
   /* START TASK: Subdirectories */
   if (is_dir) {
-    struct inode* new_dir_inode = inode_open(inode_sector);
-    struct dir* new_dir_struct = dir_open(new_dir_inode);
+    struct inode* new_dir_inode = inode_open(inode_sector); 
+    struct dir* new_dir_struct = dir_open(new_dir_inode); /* newly created dir */
 
-    bool success = (dir_add(new_dir_struct, ".", inode_sector) && dir_add(new_dir_struct, "..", dir->inode->sector));
-
-    inode_close(new_dir_inode);
+    struct inode *dir_inode = dir_get_inode(dir); /* right-before dir */
+    bool success = (dir_add(new_dir_struct, ".", inode_sector) && dir_add(new_dir_struct, "..", inode_get_sector(dir_inode)));
     dir_close(new_dir_struct);
+    if (!success) {
+      return NULL;
+    }
   }
   /* END TASK: Subdirectories */
-
   dir_close(dir);
 
   return success;
@@ -109,39 +109,65 @@ bool filesys_remove(const char* name) {
   return success;
 }
 
-struct dir* get_directory(const char* dir_path) {
-  // dir = t->cwd
-  // loop (get_next_part null)
-  // get_next_part -> name
-  // dir_lookup(dir, name, &inode)
-  // dir = inode
-
-  /* Determine if absolute or relative */
-
-  // path = "/Home/Desktop"
-  // Desktop cwd
-  struct dir* curr_dir;
-  if (dir_path[0] == '/') {
-    curr_dir = dir_open_root();
-  } else {
-    curr_dir = thread_current()->cwd;
-  }
+/* Returns directory struct at end of path. */
+struct dir* get_directory(const char* path, bool mkdir) {
   char part[NAME_MAX + 1];
-  struct inode* inode = NULL;
+  struct dir* prev = NULL;
+  struct dir* cur;
+  if (path[0] == '/') {
+    cur = dir_open_root();
+  } else {
+    cur = thread_current()->cwd;
+  }
+  struct inode *temp_inode;
 
-  int ctr = 0;
-  while (get_next_part(part, &dir_path) > 0) {
-    bool success = dir_lookup(curr_dir, part, &inode);
-    if (ctr > 0) {
-      free(curr_dir);
+  int count = 0;
+  int status = get_next_part(part, &path);
+  while(status > 0) {
+    /* Set temp_inode to be inode of directory named "part".*/
+    bool success = dir_lookup(cur, part, &temp_inode);
+
+    /* Free the previous struct directory. */
+    if (prev != NULL && count != 1) {
+      dir_close(prev);
     }
+
     if (!success) {
+      /* Make sure to free cur before exiting. */
+      if (cur != NULL && count != 0) {
+        dir_close(cur);
+      }
       return NULL;
     }
-    curr_dir = dir_open(inode);
-    ctr++;
+
+    /* Save the current directory into prev and set cur to the newly found directory. */
+    prev = cur;
+    cur = dir_open(temp_inode);
+
+    count++;
+    status = get_next_part(part, &path);
   }
-  return curr_dir;
+
+  /* Check if path item name is too long. */
+  if (status == -1) {
+    return NULL;
+  }
+
+  /* If mkdir, then return directory where new directory is to be created.
+  Otherwise, return the last item in the path. */
+  if (mkdir) {
+    /* Avoid freeing cur when cur == cwd */
+    if (cur != NULL && count != 0) {
+      dir_close(cur);
+    }
+    return prev;
+  } else {
+    /* Avoid freeing prev when prev == cwd */
+    if (prev != NULL && count != 1) {
+      dir_close(prev);
+    }
+    return cur;
+  }
 }
 
 
