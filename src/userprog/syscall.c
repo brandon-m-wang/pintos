@@ -26,7 +26,7 @@ static void syscall_handler(struct intr_frame* f UNUSED) {
   }
 
   /* Get the main process struct. */
-  struct process* main_pcb = process_current();
+  // struct process* main_pcb = process_current();
 
   if (args[0] == SYS_PRACTICE) {
     f->eax = args[1] + 1;
@@ -112,16 +112,16 @@ static void syscall_handler(struct intr_frame* f UNUSED) {
 
     f->eax = sys_sum_to_e((int)args[1]);
   } else if (args[0] == SYS_CHDIR) {
-    if (!valid_pointer((void*)args + 4, sizeof(uint32_t*)) || !valid_string(args[1])) {
+    if (!valid_pointer((void*)args + 4, sizeof(uint32_t*)) || !valid_string((char*)args[1])) {
       exit_with_error(&f->eax, -1);
     }
 
   } else if (args[0] == SYS_MKDIR) {
-    if (!valid_pointer((void*)args + 4, sizeof(uint32_t*)) || !valid_string(args[1])) {
+    if (!valid_pointer((void*)args + 4, sizeof(uint32_t*)) || !valid_string((char*)args[1])) {
       exit_with_error(&f->eax, -1);
     }
 
-    f->eax = create(args[1], 2 * 20, true);
+    f->eax = create((char*)args[1], 2 * 20, true);
   }
 }
 
