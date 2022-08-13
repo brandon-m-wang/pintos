@@ -121,7 +121,7 @@ static void syscall_handler(struct intr_frame* f UNUSED) {
       exit_with_error(&f->eax, -1);
     }
 
-    f->eax = create(args[1], 0, true);
+    f->eax = create(args[1], 2 * 20, true);
   }
 }
 

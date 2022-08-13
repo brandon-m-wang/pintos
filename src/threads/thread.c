@@ -120,6 +120,7 @@ void thread_init(void) {
   
   /* START TASK: Subdirectories */
   initial_thread->cwd = dir_open_root();
+  // set its inode_disk->parent-dir
   /* END TASK: Subdirectories */
 }
 
