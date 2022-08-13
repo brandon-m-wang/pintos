@@ -54,9 +54,7 @@ static void syscall_handler(struct intr_frame* f UNUSED) {
       exit_with_error(&f->eax, -1);
     }
 
-    lock_acquire(&main_pcb->file_syscalls_lock);
     f->eax = create((char*)args[1], args[2]);
-    lock_release(&main_pcb->file_syscalls_lock);
 
   } else if (args[0] == SYS_REMOVE) {
     /* Verify char* pointer */
@@ -64,9 +62,7 @@ static void syscall_handler(struct intr_frame* f UNUSED) {
       exit_with_error(&f->eax, -1);
     }
 
-    lock_acquire(&main_pcb->file_syscalls_lock);
     f->eax = remove((char*)args[1]);
-    lock_release(&main_pcb->file_syscalls_lock);
 
   } else if (args[0] == SYS_OPEN) {
     /* Verify char* pointer */
@@ -74,15 +70,11 @@ static void syscall_handler(struct intr_frame* f UNUSED) {
       exit_with_error(&f->eax, -1);
     }
 
-    lock_acquire(&main_pcb->file_syscalls_lock);
     f->eax = open((char*)args[1]);
-    lock_release(&main_pcb->file_syscalls_lock);
 
   } else if (args[0] == SYS_FILESIZE) {
 
-    lock_acquire(&main_pcb->file_syscalls_lock);
     f->eax = filesize(args[1]);
-    lock_release(&main_pcb->file_syscalls_lock);
 
   } else if (args[0] == SYS_READ) {
     /* Verify buffer pointer */
@@ -90,9 +82,7 @@ static void syscall_handler(struct intr_frame* f UNUSED) {
       exit_with_error(&f->eax, -1);
     }
 
-    lock_acquire(&main_pcb->file_syscalls_lock);
     f->eax = read(args[1], (void*)args[2], args[3]);
-    lock_release(&main_pcb->file_syscalls_lock);
 
   } else if (args[0] == SYS_WRITE) {
     /* Verify buffer pointer */
@@ -100,27 +90,19 @@ static void syscall_handler(struct intr_frame* f UNUSED) {
       exit_with_error(&f->eax, -1);
     }
 
-    lock_acquire(&main_pcb->file_syscalls_lock);
     f->eax = write(args[1], (void*)args[2], args[3]);
-    lock_release(&main_pcb->file_syscalls_lock);
 
   } else if (args[0] == SYS_SEEK) {
 
-    lock_acquire(&main_pcb->file_syscalls_lock);
     seek(args[1], args[2]);
-    lock_release(&main_pcb->file_syscalls_lock);
 
   } else if (args[0] == SYS_TELL) {
 
-    lock_acquire(&main_pcb->file_syscalls_lock);
     f->eax = tell(args[1]);
-    lock_release(&main_pcb->file_syscalls_lock);
 
   } else if (args[0] == SYS_CLOSE) {
 
-    lock_acquire(&main_pcb->file_syscalls_lock);
     close(args[1]);
-    lock_release(&main_pcb->file_syscalls_lock);
 
   } else if (args[0] == SYS_COMPUTE_E) {
     /* Verify args pointer */
