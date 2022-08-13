@@ -35,5 +35,7 @@ block_sector_t inode_get_sector(struct inode* inode);
 void inode_set_parent(struct inode* dst, struct inode* src);
 /* Check inode's inode_disk's is_dir */
 bool is_inode_dir(struct *inode inode);
+void inode_dec_files_contained(struct inode* inode);
+void inode_inc_files_contained(struct inode* inode);
 
 #endif /* filesys/inode.h */

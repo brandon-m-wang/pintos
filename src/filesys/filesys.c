@@ -102,11 +102,32 @@ struct file* filesys_open(const char* name) {
    Fails if no file named NAME exists,
    or if an internal memory allocation fails. */
 bool filesys_remove(const char* name) {
-  struct dir* dir = dir_open_root();
-  bool success = dir != NULL && dir_remove(dir, name);
+  /* START TASK: Subdirectories */
+  struct dir* dir = get_directory(name, true);
+  char last_name_in_path[NAME_MAX + 1];
+  get_last_in_path(name, last_name_in_path);
+  /* END TASK: Subdirectories */
+
+  // TODO: Figure out how to not remove directories that are not empty and not currently opened by a process.
+  bool success = dir != NULL && dir_remove(dir, last_name_in_path);
   dir_close(dir);
 
   return success;
+}
+
+/* START TASK: Subdirectories */
+/* Gets last item in path and writes it into buffer */
+bool get_last_in_path(const char* path, char* buffer) {
+  char part[NAME_MAX + 1];
+  int status = get_next_part(part, &path);
+  while (status > 0) {
+    get_next_part(part, &path);
+  }
+  if (status == -1) {
+    return false;
+  }
+  memcpy(buffer, part, NAME_MAX + 1);
+  return true;
 }
 
 /* Returns directory struct at end of path. */
@@ -208,3 +229,29 @@ static int get_next_part(char part[NAME_MAX + 1], const char** srcp) {
   *srcp = src;
   return 1;
 }
+
+/* Change cwd. */
+bool filesys_chdir(const char* dir) {
+  /* Get struct dir of directory we want to change to */
+  struct dir *target_dir = get_directory(dir, false);
+  if (dir == NULL) {
+    return false;
+  }
+
+  thread_current()->cwd = target_dir;
+  return true;
+}
+
+/* Reads one entry from directory at name */
+bool filesys_readdir(int fd, char* name) {
+  /* Get the process's active_file with its file descriptor matching fd. */
+  struct active_file* target_active_file = get_active_file(fd);
+
+  /* Check if file is a directory */
+  if (target_active_file->dir == NULL) {
+    return false;
+  }
+
+  return dir_readdir(target_active_file->dir, name);
+}
+/* END TASK: Subdirectories */
