@@ -129,6 +129,8 @@ static void syscall_handler(struct intr_frame* f UNUSED) {
     }
 
     f->eax = sys_sum_to_e((int)args[1]);
+  } else if (args[0] == SYS_MKDIR) {
+    
   }
 }
 
@@ -143,7 +145,7 @@ bool create(const char* file, unsigned initial_size) {
   }
 
   /* Call filesys_create */
-  bool return_code = filesys_create(file, initial_size);
+  bool return_code = filesys_create(file, initial_size, false);
   return return_code;
 }
 
