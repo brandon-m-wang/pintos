@@ -711,7 +711,7 @@ void flush_cache(void) {
   for (int i = 0; i < 64; i++) {
     cache_entry = &buffer_cache[i];
     /* Make sure all reads/writes before system shutdown finishes before flushing */
-    lock_acquire(&(cache_entry->b_lock));
+    // lock_acquire(&(cache_entry->b_lock));
 
     /* Only flush if data is valid and dirty. */
     if (cache_entry->valid && cache_entry->dirty) {
@@ -721,7 +721,7 @@ void flush_cache(void) {
     /* Free cache_entry's allocated data. */
     free(cache_entry->data);
 
-    lock_release(&(cache_entry->b_lock));
+    // lock_release(&(cache_entry->b_lock));
   }
 
   lock_release(&buffer_cache_lock);
@@ -748,11 +748,11 @@ int replace_block(block_sector_t sector) {
 
     /* Found entry for removal */
     evicted_sector = cache_entry->sector;
-    lock_acquire(&(cache_entry->b_lock));
+    // lock_acquire(&(cache_entry->b_lock));
     /* Check if data changed after acquiring evicted block's lock */
     if (evicted_sector != cache_entry->sector) {
       /* Find another eviction target */
-      lock_release(&(cache_entry->b_lock));
+      // lock_release(&(cache_entry->b_lock));
       clock_pos++;
       continue;
     }
@@ -768,7 +768,7 @@ int replace_block(block_sector_t sector) {
     cache_entry->dirty = false;
     cache_entry->valid = true;
     cache_entry->clock_state = 1;
-    lock_release(&(cache_entry->b_lock));
+    // lock_release(&(cache_entry->b_lock));
     clock_pos++;
     break;
   }
@@ -796,27 +796,30 @@ void cache_read(block_sector_t sector, void *buffer) {
     cache_entry = &buffer_cache[new_entry_idx];
   }
 
-  lock_release(&buffer_cache_lock);
+  // lock_release(&buffer_cache_lock);
 
   /* Read data from buffer cache into buffer. */
   /* Note: This must be outside of buffer_cache_lock acquired to support concurrent reads/writes to different blocks */
   if (cache_entry != NULL) {
-    lock_acquire(&(cache_entry->b_lock));
+    // lock_acquire(&(cache_entry->b_lock));
     /* Check if data changed between releasing buffer cache lock and acquiring cache entry's lock */
     if (cache_entry->sector != sector) {
       /* Data has changed, so try to find it again in the cache. */
-      lock_release(&(cache_entry->b_lock));
+      // lock_release(&(cache_entry->b_lock));
+      lock_release(&buffer_cache_lock);
       return cache_read(sector, buffer);
     }
 
     /* Data is consistent, read into buffer. */
     memcpy(buffer, cache_entry->data, BLOCK_SECTOR_SIZE);
     cache_entry->clock_state = 1;
-    lock_release(&(cache_entry->b_lock));
+    // lock_release(&(cache_entry->b_lock));
+    lock_release(&buffer_cache_lock);
     return;
   } else {
     /* cache_entry is NULL, repeat process */
-    cache_read(sector, buffer);
+    lock_release(&buffer_cache_lock);
+    return cache_read(sector, buffer);
   }
 }
 
@@ -841,16 +844,17 @@ void cache_write(block_sector_t sector, void *buffer) {
     cache_entry = &buffer_cache[new_entry_idx];
   }
 
-  lock_release(&buffer_cache_lock);
+  // lock_release(&buffer_cache_lock);
 
   /* Write data from buffer into cache block. */
   /* Note: This must be outside of acquiring buffer_cache_lock to support concurrent reads/writes to different blocks */
   if (cache_entry != NULL) {
-    lock_acquire(&(cache_entry->b_lock));
+    // lock_acquire(&(cache_entry->b_lock));
     /* Check if data changed between releasing buffer cache lock and acquiring cache entry's lock */
     if (cache_entry->sector != sector) {
       /* Data has changed, so try to find it again in the cache. */
-      lock_release(&(cache_entry->b_lock));
+      // lock_release(&(cache_entry->b_lock));
+      lock_release(&buffer_cache_lock);
       return cache_write(sector, buffer);
     }
 
@@ -858,10 +862,12 @@ void cache_write(block_sector_t sector, void *buffer) {
     memcpy(cache_entry->data, buffer, BLOCK_SECTOR_SIZE);
     cache_entry->dirty = true;
     cache_entry->clock_state = 1;
-    lock_release(&(cache_entry->b_lock));
+    // lock_release(&(cache_entry->b_lock));
+    lock_release(&buffer_cache_lock);
     return;
   } else {
     /* cache_entry is NULL, repeat process */
+    lock_release(&buffer_cache_lock);
     cache_write(sector, buffer);
   }
 }
