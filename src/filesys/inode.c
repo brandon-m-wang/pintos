@@ -140,7 +140,7 @@ void rollback(struct list *allocated_sectors) {
    Returns false if memory or disk allocation fails. */
 bool inode_create(block_sector_t sector, off_t length) {
   struct inode_disk* disk_inode = NULL;
-  bool success = false;
+  bool success = true;
 
   ASSERT(length >= 0);
 
