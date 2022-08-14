@@ -74,15 +74,15 @@ bool inode_create(block_sector_t sector, off_t length) {
     disk_inode->length = length;
     disk_inode->magic = INODE_MAGIC;
     if (free_map_allocate(sectors, &disk_inode->start)) {
-      cache_write(sector, disk_inode);
-      // block_write(fs_device, sector, disk_inode);
+      // cache_write(sector, disk_inode);
+      block_write(fs_device, sector, disk_inode);
       if (sectors > 0) {
         static char zeros[BLOCK_SECTOR_SIZE];
         size_t i;
 
         for (i = 0; i < sectors; i++)
-          cache_write(disk_inode->start, zeros);
-          // block_write(fs_device, disk_inode->start + i, zeros);
+          // cache_write(disk_inode->start, zeros);
+          block_write(fs_device, disk_inode->start + i, zeros);
       }
       success = true;
     }
@@ -118,8 +118,7 @@ struct inode* inode_open(block_sector_t sector) {
   inode->open_cnt = 1;
   inode->deny_write_cnt = 0;
   inode->removed = false;
-  cache_read(inode->sector, &inode->data);
-  // block_read(fs_device, inode->sector, &inode->data);
+  block_read(fs_device, inode->sector, &inode->data);
   return inode;
 }
 
@@ -318,8 +317,9 @@ struct lock buffer_cache_lock;
 /* Initializes buffer cache at system startup. */
 void init_buffer_cache(void) {
   /* Initialize blocks in buffer cache */
+  block *cache_entry;
   for (int i = 0; i < 64; i++) {
-    block *cache_entry = &buffer_cache[i];
+    cache_entry = &buffer_cache[i];
 
     /* Malloc space on heap for data in block. */
     cache_entry->data = (char *) malloc(sizeof(char) * BLOCK_SECTOR_SIZE);
@@ -344,9 +344,9 @@ void init_buffer_cache(void) {
 /* Flushes buffer cache out to disk and deallocates buffer cache memory at system shut down. */
 void flush_cache(void) {
   lock_acquire(&buffer_cache_lock);
-  
+  block *cache_entry;
   for (int i = 0; i < 64; i++) {
-    block *cache_entry = &buffer_cache[i];
+    cache_entry = &buffer_cache[i];
     /* Make sure all reads/writes before system shutdown finishes before flushing */
     lock_acquire(&(cache_entry->b_lock));
 
@@ -417,10 +417,10 @@ void cache_read(block_sector_t sector, void *buffer) {
   /* Acquire lock to iterate through buffer cache and evict if necessary */
   lock_acquire(&buffer_cache_lock);
   block *cache_entry = NULL;
-
+  block* temp_entry;
   /* Find entry in buffer cache */
   for (int i = 0; i < 64; i++) {
-    block* temp_entry = &buffer_cache[i];
+    temp_entry = &buffer_cache[i];
     if (temp_entry->valid && temp_entry->sector == sector) {
       cache_entry = temp_entry;
       break;
@@ -462,10 +462,10 @@ void cache_write(block_sector_t sector, void *buffer) {
   /* Acquire lock to iterate through buffer cache and evict if necessary */
   lock_acquire(&buffer_cache_lock);
   block *cache_entry = NULL;
-
+  block* temp_entry;
   /* Find entry in buffer cache */
   for (int i = 0; i < 64; i++) {
-    block* temp_entry = &buffer_cache[i];
+    temp_entry = &buffer_cache[i];
     if (temp_entry->valid && temp_entry->sector == sector) {
       cache_entry = temp_entry;
       break;
