@@ -60,7 +60,6 @@ struct inode {
   int open_cnt;           /* Number of openers. */
   bool removed;           /* True if deleted, false otherwise. */
   int deny_write_cnt;     /* 0: writes ok, >0: deny writes. */
-  struct inode_disk data; /* Inode content. */
   int files_contained;    /* Number of files this inode contains (if it is a directory). */
 
   /* Project 3 Task 2 START */
@@ -289,17 +288,18 @@ static block_sector_t byte_to_sector(const struct inode* inode, off_t pos) {
   off_t block_index = pos / BLOCK_SECTOR_SIZE;
   
   // Fetch inode_disk struct
-  struct inode_disk inode_data = inode->data;
+  struct inode_disk *inode_data;
+  cache_read(inode->sector, (void*) inode_data);
 
   if (block_index < 122) {
     // Case where we can fetch block from direct blocks
-    return inode_data.direct_blocks[block_index];
+    return inode_data->direct_blocks[block_index];
   } else if (block_index < 250) {
     // Case where we have to check single_indirect_block
 
     // Read indirect_block struct from disk with cache read and store in buffer
     struct indirect_block *indirect_block; 
-    cache_read(inode_data.single_indirect_block, (void*) indirect_block);
+    cache_read(inode_data->single_indirect_block, (void*) indirect_block);
 
     // Using indirect_block struct, read from cache to get block
     return indirect_block->indirect_blocks[block_index - 128];
@@ -310,7 +310,7 @@ static block_sector_t byte_to_sector(const struct inode* inode, off_t pos) {
 
     // Read indirect_block struct from disk with cache read and store in buffer
     struct indirect_block *double_indirect_block; 
-    cache_read(inode_data.double_indirect_block, (void*) double_indirect_block);
+    cache_read(inode_data->double_indirect_block, (void*) double_indirect_block);
 
     // Using indirect_block struct, index into indirect blocks and read next indirect_block struct
     struct indirect_block *indirect_block; 
@@ -350,8 +350,8 @@ struct block_list_elem {
 
 void rollback(struct list *allocated_sectors) {
   struct block_list_elem *block_elem;
-  struct list_elem *iter = list_begin(&allocated_sectors);
-  while (iter != list_end(&allocated_sectors)) {
+  struct list_elem *iter = list_begin(allocated_sectors);
+  while (iter != list_end(allocated_sectors)) {
     block_elem = list_entry(iter, struct block_list_elem, elem);
     iter = list_next(iter);
     free_map_release(*block_elem->block_ptr, 1);
@@ -378,6 +378,8 @@ bool inode_create(block_sector_t sector, off_t length, bool is_dir) {
   if (disk_inode != NULL) {
 
     /* Project 3 Task 2 START */
+    static char zeros[BLOCK_SECTOR_SIZE];
+
     struct list allocated_sectors;
     list_init(&allocated_sectors);
     struct block_list_elem *block_elem;
@@ -396,6 +398,10 @@ bool inode_create(block_sector_t sector, off_t length, bool is_dir) {
       rollback(&allocated_sectors);
       return false;
     }
+
+    // Write allocated sector to disk
+    cache_write(disk_inode->single_indirect_block, zeros);
+
     block_elem = malloc(sizeof(struct block_list_elem));
     block_elem->block_ptr = &disk_inode->single_indirect_block;
     list_push_back(&allocated_sectors, &block_elem->elem);
@@ -406,6 +412,10 @@ bool inode_create(block_sector_t sector, off_t length, bool is_dir) {
       rollback(&allocated_sectors);
       return false;
     }
+
+    // Write allocated sector to disk
+    cache_write(disk_inode->double_indirect_block, zeros);
+
     block_elem = malloc(sizeof(struct block_list_elem));
     block_elem->block_ptr = &disk_inode->double_indirect_block;
     list_push_back(&allocated_sectors, &block_elem->elem);
@@ -420,6 +430,10 @@ bool inode_create(block_sector_t sector, off_t length, bool is_dir) {
           rollback(&allocated_sectors);
           return false;
         }
+
+        // Write allocated sector to disk
+        cache_write(disk_inode->direct_blocks[i], zeros);
+
         block_elem = malloc(sizeof(struct block_list_elem));
         block_elem->block_ptr = &disk_inode->direct_blocks[i];
         list_push_back(&allocated_sectors, &block_elem->elem);
@@ -437,6 +451,10 @@ bool inode_create(block_sector_t sector, off_t length, bool is_dir) {
           rollback(&allocated_sectors);
           return false;
         }
+
+        // Write allocated sector to disk
+        cache_write(indirect_block->indirect_blocks[i - 128], zeros);
+
         block_elem = malloc(sizeof(struct block_list_elem));
         block_elem->block_ptr = &indirect_block->indirect_blocks[i - 128];
         list_push_back(&allocated_sectors, &block_elem->elem);
@@ -453,6 +471,10 @@ bool inode_create(block_sector_t sector, off_t length, bool is_dir) {
           rollback(&allocated_sectors);
           return false;
         }
+
+        // Write allocated sector to disk
+        cache_write(double_indirect_block->indirect_blocks[(i - 250) / 128], zeros);
+
         block_elem = malloc(sizeof(struct block_list_elem));
         block_elem->block_ptr = &double_indirect_block->indirect_blocks[(i - 250) / 128];
         list_push_back(&allocated_sectors, &block_elem->elem);
@@ -467,6 +489,10 @@ bool inode_create(block_sector_t sector, off_t length, bool is_dir) {
           rollback(&allocated_sectors);
           return false;
         }
+
+        // Write allocated sector to disk
+        cache_write(indirect_block->indirect_blocks[(i - 250) % 128], zeros);
+
         block_elem = malloc(sizeof(struct block_list_elem));
         block_elem->block_ptr = &indirect_block->indirect_blocks[(i - 250) % 128];
         list_push_back(&allocated_sectors, &block_elem->elem);
@@ -520,7 +546,6 @@ struct inode* inode_open(block_sector_t sector) {
   inode->open_cnt = 1;
   inode->deny_write_cnt = 0;
   inode->removed = false;
-  block_read(fs_device, inode->sector, &inode->data);
   return inode;
 }
 
@@ -549,28 +574,29 @@ void inode_close(struct inode* inode) {
 
     /* Deallocate blocks if removed. */
     if (inode->removed) {
+      struct inode_disk *disk_inode;
+      cache_read(inode->sector, (void*) disk_inode);
+
       free_map_release(inode->sector, 1);
       
       /* Project 3 Task 2 START */
-
-      struct inode_disk disk_inode = inode->data;
  
-      size_t sectors = bytes_to_sectors(disk_inode.length);
+      size_t sectors = bytes_to_sectors(disk_inode->length);
 
       // Read indirect_block struct from disk with cache read and store in buffer
       struct indirect_block *indirect_block; 
-      cache_read(disk_inode.single_indirect_block, (void*) indirect_block);
+      cache_read(disk_inode->single_indirect_block, (void*) indirect_block);
 
       // Read indirect_block struct from disk with cache read and store in buffer
       struct indirect_block *double_indirect_block; 
-      cache_read(disk_inode.double_indirect_block, (void*) double_indirect_block);
+      cache_read(disk_inode->double_indirect_block, (void*) double_indirect_block);
 
       // Allocate sectors within direct block, single indirect block, and double indirect block
       for (int i = 0; i < sectors; i++) {
         if (i < 122) {
           // Case where we can deallocate direct block sectors
 
-          free_map_release(disk_inode.direct_blocks[i], 1);
+          free_map_release(disk_inode->direct_blocks[i], 1);
         
         } else if (i < 250) {
           // Case where we can deallocate single indirect block sectors
@@ -594,10 +620,10 @@ void inode_close(struct inode* inode) {
         }
 
         // Deallocate sector for single indirect block
-        free_map_release(disk_inode.single_indirect_block, 1);
+        free_map_release(disk_inode->single_indirect_block, 1);
 
         // Deallocate sector for double indirect block
-        free_map_release(disk_inode.double_indirect_block, 1);
+        free_map_release(disk_inode->double_indirect_block, 1);
       } 
     }
 
@@ -677,6 +703,8 @@ off_t inode_write_at(struct inode* inode, const void* buffer_, off_t size, off_t
   off_t bytes_written = 0;
   uint8_t* bounce = NULL;
 
+  static char zeros[BLOCK_SECTOR_SIZE];
+
   if (inode->deny_write_cnt)
     return 0;
 
@@ -685,46 +713,30 @@ off_t inode_write_at(struct inode* inode, const void* buffer_, off_t size, off_t
   list_init(&allocated_sectors);
   struct block_list_elem *block_elem;
 
-  struct inode_disk disk_inode = inode->data;
+  struct inode_disk *disk_inode;
+  cache_read(inode->sector, disk_inode);
 
   if (byte_to_sector(inode, offset + size - 1) == -1) {
     
-    size_t sectors = bytes_to_sectors(inode->data.length + offset + size);
-    off_t length = inode->data.length;
-
-
-     // Allocate sector for single indirect block
-    bool result = free_map_allocate(1, &disk_inode.single_indirect_block);
-    if (result == false) {
-      rollback(&allocated_sectors);
-      return false;
-    }
-    block_elem = malloc(sizeof(struct block_list_elem));
-    block_elem->block_ptr = &disk_inode.single_indirect_block;
-    list_push_back(&allocated_sectors, &block_elem->elem);
-
-    // Allocate sector for double indirect block
-    result = free_map_allocate(1, &disk_inode.double_indirect_block);
-    if (result == false) {
-      rollback(&allocated_sectors);
-      return false;
-    }
-    block_elem = malloc(sizeof(struct block_list_elem));
-    block_elem->block_ptr = &disk_inode.double_indirect_block;
-    list_push_back(&allocated_sectors, &block_elem->elem);
+    size_t sectors = bytes_to_sectors(disk_inode->length + offset + size);
+    off_t length = disk_inode->length;
 
     // Allocate sectors within direct block, single indirect block, and double indirect block
     for (int i = length; i < sectors; i++) {
       if (i < 122) {
         // Case where we can allocate sectors to direct blocks
 
-        bool result = free_map_allocate(1, &disk_inode.direct_blocks[i]);
+        bool result = free_map_allocate(1, &disk_inode->direct_blocks[i]);
         if (result == false) {
           rollback(&allocated_sectors);
           return false;
         }
+
+        // Write allocated sector to disk
+        cache_write(disk_inode->direct_blocks[i], zeros);
+
         block_elem = malloc(sizeof(struct block_list_elem));
-        block_elem->block_ptr = &disk_inode.direct_blocks[i];
+        block_elem->block_ptr = &disk_inode->direct_blocks[i];
         list_push_back(&allocated_sectors, &block_elem->elem);
         
       } else if (i < 250) {
@@ -732,7 +744,7 @@ off_t inode_write_at(struct inode* inode, const void* buffer_, off_t size, off_t
 
         // Read indirect_block struct from disk with cache read and store in buffer
         struct indirect_block *indirect_block; 
-        cache_read(disk_inode.single_indirect_block, (void*) indirect_block);
+        cache_read(disk_inode->single_indirect_block, (void*) indirect_block);
 
         // Using indirect_block struct, allocate sectors for its indirect_blocks array
         bool result = free_map_allocate(1, &indirect_block->indirect_blocks[i - 128]);
@@ -740,6 +752,10 @@ off_t inode_write_at(struct inode* inode, const void* buffer_, off_t size, off_t
           rollback(&allocated_sectors);
           return false;
         }
+
+        // Write allocated sector to disk
+        cache_write(indirect_block->indirect_blocks[i - 128], zeros);
+
         block_elem = malloc(sizeof(struct block_list_elem));
         block_elem->block_ptr = &indirect_block->indirect_blocks[i - 128];
         list_push_back(&allocated_sectors, &block_elem->elem);
@@ -749,7 +765,7 @@ off_t inode_write_at(struct inode* inode, const void* buffer_, off_t size, off_t
 
         // Read indirect_block struct from disk with cache read and store in buffer
         struct indirect_block *double_indirect_block; 
-        cache_read(disk_inode.double_indirect_block, (void*) double_indirect_block);
+        cache_read(disk_inode->double_indirect_block, (void*) double_indirect_block);
 
         // Allocate sector to access inner indirect block struct
         bool result = free_map_allocate(1, &double_indirect_block->indirect_blocks[(i - 250) / 128]);
@@ -757,6 +773,10 @@ off_t inode_write_at(struct inode* inode, const void* buffer_, off_t size, off_t
           rollback(&allocated_sectors);
           return false;
         }
+
+        // Write allocated sector to disk
+        cache_write(double_indirect_block->indirect_blocks[(i - 250) / 128], zeros);
+
         block_elem = malloc(sizeof(struct block_list_elem));
         block_elem->block_ptr = &double_indirect_block->indirect_blocks[(i - 250) / 128];
         list_push_back(&allocated_sectors, &block_elem->elem);
@@ -771,6 +791,10 @@ off_t inode_write_at(struct inode* inode, const void* buffer_, off_t size, off_t
           rollback(&allocated_sectors);
           return false;
         }
+
+        // Write allocated sector to disk
+        cache_write(indirect_block->indirect_blocks[(i - 250) % 128], zeros);
+
         block_elem = malloc(sizeof(struct block_list_elem));
         block_elem->block_ptr = &indirect_block->indirect_blocks[(i - 250) % 128];
         list_push_back(&allocated_sectors, &block_elem->elem);
@@ -781,7 +805,7 @@ off_t inode_write_at(struct inode* inode, const void* buffer_, off_t size, off_t
     }
 
     // Change length of inode
-    inode->data.length = offset + size;
+    disk_inode->length = offset + size;
 
     // Write disk_inode to cache
     cache_write(inode->sector, (void*) inode);
@@ -876,16 +900,24 @@ block_sector_t inode_get_sector(struct inode* inode) {
 
 /* Set dst's parent directory to be src */
 void inode_set_parent(struct inode* dst, struct inode* src) {
-  dst->data.parent_dir = src->sector;
+  struct inode_disk *disk_inode;
+  cache_read(dst->sector, disk_inode);
+  disk_inode->parent_dir = src->sector;
 }
 
 /* Check inode's inode_disk's is_dir */
 bool is_inode_dir(struct inode* inode) {
-  return inode->data.is_dir;
+  struct inode_disk *disk_inode;
+  cache_read(inode->sector, disk_inode);
+  return disk_inode->is_dir;
 }
 
 /* Returns the length, in bytes, of INODE's data. */
-off_t inode_length(const struct inode* inode) { return inode->data.length;}
+off_t inode_length(const struct inode* inode) { 
+  struct inode_disk *disk_inode;
+  cache_read(inode->sector, disk_inode);
+  return disk_inode->length;
+}
 
 /* Increments an inodes files contained */
 void inode_inc_files_contained(struct inode* inode) {
@@ -897,4 +929,14 @@ void inode_inc_files_contained(struct inode* inode) {
 void inode_dec_files_contained(struct inode* inode) {
   inode->files_contained--;
   return;
+}
+
+/* Returns files contained in an inode if inode is a directory */
+int inode_get_files_contained(struct inode* inode) {
+  return inode->files_contained;
+}
+
+/* Returns how many processes have this inode open. */
+int inode_get_open_cnt(struct inode* inode) {
+  return inode->open_cnt;
 }

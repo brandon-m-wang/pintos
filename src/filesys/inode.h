@@ -37,5 +37,7 @@ void inode_set_parent(struct inode* dst, struct inode* src);
 bool is_inode_dir(struct inode* inode);
 void inode_dec_files_contained(struct inode* inode);
 void inode_inc_files_contained(struct inode* inode);
+int inode_get_files_contained(struct inode* inode);
+int inode_get_open_cnt(struct inode* inode);
 
 #endif /* filesys/inode.h */
