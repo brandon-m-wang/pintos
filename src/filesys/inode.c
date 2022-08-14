@@ -114,7 +114,6 @@ static struct list open_inodes;
 void inode_init(void) { list_init(&open_inodes); }
 
 /* Rollback */
-
 void rollback(struct list *allocated_sectors);
 
 struct block_list_elem {
