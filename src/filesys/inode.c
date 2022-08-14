@@ -683,22 +683,19 @@ struct lock buffer_cache_lock;
 /* Initializes buffer cache at system startup. */
 void init_buffer_cache(void) {
   /* Initialize blocks in buffer cache */
-  block *cache_entry;
   for (int i = 0; i < 64; i++) {
-    cache_entry = &buffer_cache[i];
-
     /* Malloc space on heap for data in block. */
-    cache_entry->data = (char *) malloc(sizeof(char) * BLOCK_SECTOR_SIZE);
+    buffer_cache[i].data = (char *) malloc(sizeof(char) * BLOCK_SECTOR_SIZE);
     /* Set entry to invalid (no data in block yet). */
-    cache_entry->valid = false;
+    buffer_cache[i].valid = false;
     /* Set dirty bit to false */
-    cache_entry->dirty = false;
+    buffer_cache[i].dirty = false;
     /* Set clock state to 0 (ready for eviction) */
-    cache_entry->clock_state = 0;
+    buffer_cache[i].clock_state = 0;
     /* Set sector's default value to 0. */
-    cache_entry->sector = 0;
+    buffer_cache[i].sector = 0;
     /* Initialize block's lock */
-    lock_init(&cache_entry->b_lock);
+    lock_init(&buffer_cache[i].b_lock);
   }
 
   /* Intiialize clock_pos */
