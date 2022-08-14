@@ -6,6 +6,7 @@
 #include "filesys/filesys.h"
 #include "filesys/free-map.h"
 #include "threads/malloc.h"
+#include "threads/synch.h"
 
 /* Identifies an inode. */
 #define INODE_MAGIC 0x494e4f44
@@ -73,13 +74,15 @@ bool inode_create(block_sector_t sector, off_t length) {
     disk_inode->length = length;
     disk_inode->magic = INODE_MAGIC;
     if (free_map_allocate(sectors, &disk_inode->start)) {
-      block_write(fs_device, sector, disk_inode);
+      cache_write(sector, disk_inode);
+      // block_write(fs_device, sector, disk_inode);
       if (sectors > 0) {
         static char zeros[BLOCK_SECTOR_SIZE];
         size_t i;
 
         for (i = 0; i < sectors; i++)
-          block_write(fs_device, disk_inode->start + i, zeros);
+          cache_write(disk_inode->start, zeros);
+          // block_write(fs_device, disk_inode->start + i, zeros);
       }
       success = true;
     }
@@ -115,7 +118,8 @@ struct inode* inode_open(block_sector_t sector) {
   inode->open_cnt = 1;
   inode->deny_write_cnt = 0;
   inode->removed = false;
-  block_read(fs_device, inode->sector, &inode->data);
+  cache_read(inode->sector, &inode->data);
+  // block_read(fs_device, inode->sector, &inode->data);
   return inode;
 }
 
@@ -184,7 +188,8 @@ off_t inode_read_at(struct inode* inode, void* buffer_, off_t size, off_t offset
 
     if (sector_ofs == 0 && chunk_size == BLOCK_SECTOR_SIZE) {
       /* Read full sector directly into caller's buffer. */
-      block_read(fs_device, sector_idx, buffer + bytes_read);
+      cache_read(sector_idx, buffer + bytes_read);
+      // block_read(fs_device, sector_idx, buffer + bytes_read);
     } else {
       /* Read sector into bounce buffer, then partially copy
              into caller's buffer. */
@@ -193,7 +198,8 @@ off_t inode_read_at(struct inode* inode, void* buffer_, off_t size, off_t offset
         if (bounce == NULL)
           break;
       }
-      block_read(fs_device, sector_idx, bounce);
+      cache_read(sector_idx, bounce);
+      // block_read(fs_device, sector_idx, bounce);
       memcpy(buffer + bytes_read, bounce + sector_ofs, chunk_size);
     }
 
@@ -237,7 +243,8 @@ off_t inode_write_at(struct inode* inode, const void* buffer_, off_t size, off_t
 
     if (sector_ofs == 0 && chunk_size == BLOCK_SECTOR_SIZE) {
       /* Write full sector directly to disk. */
-      block_write(fs_device, sector_idx, buffer + bytes_written);
+      cache_write(sector_idx, buffer + bytes_written);
+      //block_write(fs_device, sector_idx, buffer + bytes_written);
     } else {
       /* We need a bounce buffer. */
       if (bounce == NULL) {
@@ -250,11 +257,13 @@ off_t inode_write_at(struct inode* inode, const void* buffer_, off_t size, off_t
              we're writing, then we need to read in the sector
              first.  Otherwise we start with a sector of all zeros. */
       if (sector_ofs > 0 || chunk_size < sector_left)
-        block_read(fs_device, sector_idx, bounce);
+        cache_read(sector_idx, bounce);
+        // block_read(fs_device, sector_idx, bounce);
       else
         memset(bounce, 0, BLOCK_SECTOR_SIZE);
       memcpy(bounce + sector_ofs, buffer + bytes_written, chunk_size);
-      block_write(fs_device, sector_idx, bounce);
+      cache_write(sector_idx, bounce);
+      // block_write(fs_device, sector_idx, bounce);
     }
 
     /* Advance. */
@@ -285,3 +294,212 @@ void inode_allow_write(struct inode* inode) {
 
 /* Returns the length, in bytes, of INODE's data. */
 off_t inode_length(const struct inode* inode) { return inode->data.length; }
+
+/* START TASK: Buffer Cache */
+/* The current position of the clock hand for clock replacement algorithm */
+int clock_pos;
+
+/* A buffer cache entry */
+typedef struct block {
+  char *data;             /* Pointer to a 512 byte buffer on the heap. */
+  block_sector_t sector;  /* Location of block on disk */
+  int clock_state;        /* either 1 or 0 for clock replacement algorithm */
+  bool dirty;             /* Dirty bit. true = dirty, false = not dirty */
+  bool valid;             /* Valid bit true = valid, false = invalid */
+  struct lock b_lock;     /* Lock for reads/writes/evicts to this specific block */
+} block;
+
+/* Global buffer cache that stores blocks. */
+block buffer_cache[64];
+
+/* Lock for iterating through or replacing an item in the buffer cache. */
+struct lock buffer_cache_lock;
+
+/* Initializes buffer cache at system startup. */
+void init_buffer_cache(void) {
+  /* Initialize blocks in buffer cache */
+  for (int i = 0; i < 64; i++) {
+    block *cache_entry = &buffer_cache[i];
+
+    /* Malloc space on heap for data in block. */
+    cache_entry->data = (char *) malloc(sizeof(char) * BLOCK_SECTOR_SIZE);
+    /* Set entry to invalid (no data in block yet). */
+    cache_entry->valid = false;
+    /* Set dirty bit to false */
+    cache_entry->dirty = false;
+    /* Set clock state to 0 (ready for eviction) */
+    cache_entry->clock_state = 0;
+    /* Set sector's default value to 0. */
+    cache_entry->sector = 0;
+    /* Initialize block's lock */
+    lock_init(&cache_entry->b_lock);
+  }
+
+  /* Intiialize clock_pos */
+  clock_pos = 0;
+  /* Initialize buffer cache lock */
+  lock_init(&buffer_cache_lock);
+}
+
+/* Flushes buffer cache out to disk and deallocates buffer cache memory at system shut down. */
+void flush_cache(void) {
+  lock_acquire(&buffer_cache_lock);
+  
+  for (int i = 0; i < 64; i++) {
+    block *cache_entry = &buffer_cache[i];
+    /* Make sure all reads/writes before system shutdown finishes before flushing */
+    lock_acquire(&(cache_entry->b_lock));
+
+    /* Only flush if data is valid and dirty. */
+    if (cache_entry->valid && cache_entry->dirty) {
+      /* Write block's data out to disk. */
+      block_write(fs_device, cache_entry->sector, cache_entry->data);
+    }
+    /* Free cache_entry's allocated data. */
+    free(cache_entry->data);
+
+    lock_release(&(cache_entry->b_lock));
+  }
+
+  lock_release(&buffer_cache_lock);
+}
+
+/* Evicts a block from buffer cache according to the clock replacement algorithm. Then replaces it with a new block with the given sector on disk. */
+int replace_block(block_sector_t sector) {
+  /* Note: replace_block should be called in the context of the buffer_cache_lock already acquired. */
+  block *cache_entry = NULL;
+  block_sector_t evicted_sector;
+  while (1) {
+    /* Reset clock hand. */
+    if (clock_pos >= 64) {
+      clock_pos = 0;
+    }
+
+    /* Check if cache entry is ready for eviction */
+    cache_entry = &buffer_cache[clock_pos];
+    if (cache_entry->valid && cache_entry->clock_state == 1) {
+      cache_entry->clock_state = 0;
+      clock_pos++;
+      continue;
+    }
+
+    /* Found entry for removal */
+    evicted_sector = cache_entry->sector;
+    lock_acquire(&(cache_entry->b_lock));
+    /* Check if data changed after acquiring evicted block's lock */
+    if (evicted_sector != cache_entry->sector) {
+      /* Find another eviction target */
+      lock_release(&(cache_entry->b_lock));
+      clock_pos++;
+      continue;
+    }
+
+    /* If dirty bit set, write data out to disk before eviction. */
+    if (cache_entry->dirty) {
+      block_write(fs_device, sector, cache_entry->data);
+    }
+
+    /* Data is consistent, read disk sector to buffer cache entry. */
+    block_read(fs_device, sector, cache_entry->data);
+    cache_entry->sector = sector;
+    cache_entry->dirty = false;
+    cache_entry->valid = true;
+    cache_entry->clock_state = 1;
+    lock_release(&(cache_entry->b_lock));
+    clock_pos++;
+    break;
+  }
+  return evicted_sector;
+}
+
+/* Read an entry from the cache into buffer, pulling in a sector from disk into the cache for reading if the sector is not in the cache already. */
+void cache_read(block_sector_t sector, void *buffer) {
+  /* Acquire lock to iterate through buffer cache and evict if necessary */
+  lock_acquire(&buffer_cache_lock);
+  block *cache_entry = NULL;
+
+  /* Find entry in buffer cache */
+  for (int i = 0; i < 64; i++) {
+    block* temp_entry = &buffer_cache[i];
+    if (temp_entry->valid && temp_entry->sector == sector) {
+      cache_entry = temp_entry;
+      break;
+    }
+  }
+
+  /* Check if entry exists in cache */
+  if (cache_entry == NULL) {
+    int new_entry_idx = replace_block(sector);
+    cache_entry = &buffer_cache[new_entry_idx];
+  }
+
+  lock_release(&buffer_cache_lock);
+
+  /* Read data from buffer cache into buffer. */
+  /* Note: This must be outside of buffer_cache_lock acquired to support concurrent reads/writes to different blocks */
+  if (cache_entry != NULL) {
+    lock_acquire(&(cache_entry->b_lock));
+    /* Check if data changed between releasing buffer cache lock and acquiring cache entry's lock */
+    if (cache_entry->sector != sector) {
+      /* Data has changed, so try to find it again in the cache. */
+      lock_release(&(cache_entry->b_lock));
+      return cache_read(sector, buffer);
+    }
+
+    /* Data is consistent, read into buffer. */
+    memcpy(buffer, cache_entry->data, BLOCK_SECTOR_SIZE);
+    cache_entry->clock_state = 1;
+    lock_release(&(cache_entry->b_lock));
+    return;
+  } else {
+    /* cache_entry is NULL, repeat process */
+    cache_read(sector, buffer);
+  }
+}
+
+/* Write an entry to the cache from buffer, pulling in a sector from disk into the cache for writing if the sector is not in the cache already. */
+void cache_write(block_sector_t sector, void *buffer) {
+  /* Acquire lock to iterate through buffer cache and evict if necessary */
+  lock_acquire(&buffer_cache_lock);
+  block *cache_entry = NULL;
+
+  /* Find entry in buffer cache */
+  for (int i = 0; i < 64; i++) {
+    block* temp_entry = &buffer_cache[i];
+    if (temp_entry->valid && temp_entry->sector == sector) {
+      cache_entry = temp_entry;
+      break;
+    }
+  }
+
+  /* Check if entry exists in cache */
+  if (cache_entry == NULL) {
+    int new_entry_idx = replace_block(sector);
+    cache_entry = &buffer_cache[new_entry_idx];
+  }
+
+  lock_release(&buffer_cache_lock);
+
+  /* Write data from buffer into cache block. */
+  /* Note: This must be outside of acquiring buffer_cache_lock to support concurrent reads/writes to different blocks */
+  if (cache_entry != NULL) {
+    lock_acquire(&(cache_entry->b_lock));
+    /* Check if data changed between releasing buffer cache lock and acquiring cache entry's lock */
+    if (cache_entry->sector != sector) {
+      /* Data has changed, so try to find it again in the cache. */
+      lock_release(&(cache_entry->b_lock));
+      return cache_write(sector, buffer);
+    }
+
+    /* Data is consistent, write buffer into cache block. */
+    memcpy(cache_entry->data, buffer, BLOCK_SECTOR_SIZE);
+    cache_entry->dirty = true;
+    cache_entry->clock_state = 1;
+    lock_release(&(cache_entry->b_lock));
+    return;
+  } else {
+    /* cache_entry is NULL, repeat process */
+    cache_write(sector, buffer);
+  }
+}
+/* END TASK: Buffer Cache */
