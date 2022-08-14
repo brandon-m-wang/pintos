@@ -787,11 +787,11 @@ off_t inode_write_at(struct inode* inode, const void* buffer_, off_t size, off_t
     cache_write(inode->sector, (void*) inode);
 
     // Free the malloc'd block_elems
-    struct list_elem *iter;
-    for (iter = list_begin(&allocated_sectors); iter != list_end(&allocated_sectors);
-        iter = list_next(iter)) {
-        block_elem = list_entry(iter, struct block_list_elem, elem);
-        free(block_elem);
+    struct list_elem *iter = list_begin(&allocated_sectors);
+    while (iter != list_end(&allocated_sectors)) {
+      block_elem = list_entry(iter, struct block_list_elem, elem);
+      iter = list_next(iter);
+      free(block_elem);
     }
   }
 
