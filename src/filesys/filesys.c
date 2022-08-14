@@ -121,8 +121,7 @@ bool filesys_remove(const char* name) {
     return false;
   };
   /* END TASK: Subdirectories */
-
-  // TODO: Figure out how to not remove directories that are not empty and not currently opened by a process.
+  
   bool success = dir != NULL && dir_remove(dir, last_name_in_path);
   dir_close(dir);
 

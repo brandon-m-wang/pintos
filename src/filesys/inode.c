@@ -930,3 +930,13 @@ void inode_dec_files_contained(struct inode* inode) {
   inode->files_contained--;
   return;
 }
+
+/* Returns files contained in an inode if inode is a directory */
+int inode_get_files_contained(struct inode* inode) {
+  return inode->files_contained;
+}
+
+/* Returns how many processes have this inode open. */
+int inode_get_open_cnt(struct inode* inode) {
+  return inode->open_cnt;
+}
