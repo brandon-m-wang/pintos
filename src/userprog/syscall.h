@@ -7,7 +7,7 @@ void syscall_init(void);
 
 /* START TASK: File Operation Syscalls */
 
-bool create(const char* file, unsigned initial_size, bool is_dir);
+bool create(const char* file, unsigned initial_size);
 bool remove(const char* file);
 int open(const char* file);
 int filesize(int fd);
@@ -21,8 +21,6 @@ bool valid_pointer(void* ptr, size_t size);
 bool valid_string(char* str);
 void exit_with_error(uint32_t* eax, int error_code);
 struct process* process_current(void);
-bool chdir(const char* dir);
-bool readdir(int fd, char* name);
 
 /* END TASK: File Operation Syscalls */
 

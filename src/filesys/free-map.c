@@ -8,8 +8,6 @@
 static struct file* free_map_file; /* Free map file. */
 static struct bitmap* free_map;    /* Free map, one bit per sector. */
 
-//static struct lock free_map_lock; /* acquire and release lock whenever allocating or releasing sectors in free-map */
-
 /* Initializes the free map. */
 void free_map_init(void) {
   free_map = bitmap_create(block_size(fs_device));
@@ -58,7 +56,7 @@ void free_map_close(void) { file_close(free_map_file); }
    it. */
 void free_map_create(void) {
   /* Create inode. */
-  if (!inode_create(FREE_MAP_SECTOR, bitmap_file_size(free_map), false))
+  if (!inode_create(FREE_MAP_SECTOR, bitmap_file_size(free_map)))
     PANIC("free map creation failed");
 
   /* Write bitmap to file. */

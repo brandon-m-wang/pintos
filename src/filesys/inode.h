@@ -8,7 +8,7 @@
 struct bitmap;
 
 void inode_init(void);
-bool inode_create(block_sector_t, off_t, bool);
+bool inode_create(block_sector_t, off_t);
 struct inode* inode_open(block_sector_t);
 struct inode* inode_reopen(struct inode*);
 block_sector_t inode_get_inumber(const struct inode*);
@@ -19,25 +19,5 @@ off_t inode_write_at(struct inode*, const void*, off_t size, off_t offset);
 void inode_deny_write(struct inode*);
 void inode_allow_write(struct inode*);
 off_t inode_length(const struct inode*);
-/* Initializes the buffer cache. */
-void init_buffer_cache(void);
-/* Flushes cache out to disk upon shutdown. */
-void flush_cache(void);
-/* Evicts a block from buffer cache according to the clock replacement algorithm. Then replaces it with a new block with the given sector on disk. */
-int replace_block(block_sector_t sector);
-/* Read an entry from the cache into buffer, pulling in a sector from disk into the cache for reading if the sector is not in the cache already. */
-void cache_read(block_sector_t sector, void *buffer);
-/* Write an entry to the cache from buffer, pulling in a sector from disk into the cache for writing if the sector is not in the cache already. */
-void cache_write(block_sector_t sector, void *buffer);
-/* Returns an inode's sector. */
-block_sector_t inode_get_sector(struct inode* inode);
-/* Set dst's parent directory to be src */
-void inode_set_parent(struct inode* dst, struct inode* src);
-/* Check inode's inode_disk's is_dir */
-bool is_inode_dir(struct inode* inode);
-void inode_dec_files_contained(struct inode* inode);
-void inode_inc_files_contained(struct inode* inode);
-int inode_get_files_contained(struct inode* inode);
-int inode_get_open_cnt(struct inode* inode);
 
 #endif /* filesys/inode.h */

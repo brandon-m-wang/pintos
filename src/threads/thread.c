@@ -12,7 +12,6 @@
 #include "threads/switch.h"
 #include "threads/synch.h"
 #include "threads/vaddr.h"
-#include "filesys/directory.h"
 #ifdef USERPROG
 #include "userprog/process.h"
 #endif
@@ -192,7 +191,6 @@ tid_t thread_create(const char* name, int priority, thread_func* function, void*
   /* Initialize thread. */
   init_thread(t, name, priority);
   tid = t->tid = allocate_tid();
-
   /* Task 2: Process Control Syscalls */
   // Can put this here instead of init_thread, can't malloc in init_thread.
   t->process_fields = malloc(sizeof(struct process_fields));
@@ -200,11 +198,6 @@ tid_t thread_create(const char* name, int priority, thread_func* function, void*
   sema_init(&t->process_fields->sem, 0);
   list_push_back(&thread_current()->children, &t->process_fields->elem);
   /* End Task 2: Process Control Syscalls */
-  
-  /* START TASK: Subdirectories */
-  /* Inherit parents cwd */
-  t->cwd = thread_current()->cwd;
-  /* START TASK: Subdirectories */
 
   /* Stack frame for kernel_thread(). */
   kf = alloc_frame(t, sizeof *kf);

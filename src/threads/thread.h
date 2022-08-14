@@ -90,10 +90,6 @@ struct thread {
   int priority;              /* Priority. */
   struct list_elem allelem;  /* List element for all threads list. */
 
-  /* START TASK: Subdirectories */
-  struct dir* cwd;
-  /* END TASK: Subdirectories */
-
   /* Shared between thread.c and synch.c. */
   struct list_elem elem; /* List element. */
 

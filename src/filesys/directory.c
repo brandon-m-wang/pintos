@@ -5,7 +5,6 @@
 #include "filesys/filesys.h"
 #include "filesys/inode.h"
 #include "threads/malloc.h"
-#include "userprog/process.h"
 
 /* A directory. */
 struct dir {
@@ -23,13 +22,7 @@ struct dir_entry {
 /* Creates a directory with space for ENTRY_CNT entries in the
    given SECTOR.  Returns true if successful, false on failure. */
 bool dir_create(block_sector_t sector, size_t entry_cnt) {
-  bool success = inode_create(sector, entry_cnt * sizeof(struct dir_entry), true);
-  struct inode* root_inode = inode_open(sector);
-  struct dir* root_dir = dir_open(root_inode);
-
-  success = (dir_add(root_dir, ".", sector) && dir_add(root_dir, "..", sector));
-  dir_close(root_dir);
-  return success;
+  return inode_create(sector, entry_cnt * sizeof(struct dir_entry));
 }
 
 /* Opens and returns the directory for the given INODE, of which
@@ -114,7 +107,7 @@ bool dir_lookup(const struct dir* dir, const char* name, struct inode** inode) {
 }
 
 /* Adds a file named NAME to DIR, which must not already contain a
-   file by that name. The file's inode is in sector
+   file by that name.  The file's inode is in sector
    INODE_SECTOR.
    Returns true if successful, false on failure.
    Fails if NAME is invalid (i.e. too long) or a disk or memory
@@ -152,19 +145,6 @@ bool dir_add(struct dir* dir, const char* name, block_sector_t inode_sector) {
   e.inode_sector = inode_sector;
   success = inode_write_at(dir->inode, &e, sizeof e, ofs) == sizeof e;
 
-  /* START TASK: Subdirectories */
-  /* Set the parent_dir of new_dir's struct data. */
-  if (success) {
-	  struct inode *new_dir = inode_open(inode_sector);
-    inode_set_parent(new_dir, dir->inode);
-    if (!(strcmp(name, ".") == 0 || strcmp(name, "..") == 0)) {
-      inode_inc_files_contained(dir->inode);
-    }
-    /* Close inode after opening */
-    inode_close(new_dir);
-  }
-  /* END TASK: Subdirectories */
-
 done:
   return success;
 }
@@ -190,25 +170,10 @@ bool dir_remove(struct dir* dir, const char* name) {
   if (inode == NULL)
     goto done;
 
-  /* If e is a directory, only remove if there are zero files in the directory */
-  if (is_inode_dir(inode) && inode_get_files_contained(inode) > 0) {
-    goto done;
-  }
-
-  /* If e is a directory, only remove if there are no proccesses with the directory open. */
-  if (is_inode_dir(inode) && inode_get_open_cnt(inode) > 0) {
-    goto done;
-  }
-
   /* Erase directory entry. */
   e.in_use = false;
   if (inode_write_at(dir->inode, &e, sizeof e, ofs) != sizeof e)
     goto done;
-
-  /* START TASK: Subdirectories */
-  /* Decrement files contained by parent directory */
-  inode_dec_files_contained(dir->inode);
-  /* END TASK: Subdirectories */
 
   /* Remove inode. */
   inode_remove(inode);
@@ -227,8 +192,7 @@ bool dir_readdir(struct dir* dir, char name[NAME_MAX + 1]) {
 
   while (inode_read_at(dir->inode, &e, sizeof e, dir->pos) == sizeof e) {
     dir->pos += sizeof e;
-    /* Note: strcmp returns 0 when strings are equal */
-    if (e.in_use && strcmp(e.name, ".") != 0 && strcmp(e.name, "..") != 0) {
+    if (e.in_use) {
       strlcpy(name, e.name, NAME_MAX + 1);
       return true;
     }
