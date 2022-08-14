@@ -65,7 +65,7 @@ static block_sector_t byte_to_sector(const struct inode* inode, off_t pos) {
   off_t block_index = pos / BLOCK_SECTOR_SIZE;
   
   // Fetch inode_disk struct
-  struct inode_disk *inode_data;
+  struct inode_disk *inode_data = malloc(BLOCK_SECTOR_SIZE);
   cache_read(inode->sector, (void*) inode_data);
 
   if (block_index < 124) {
@@ -341,7 +341,7 @@ void inode_close(struct inode* inode) {
 
   /* Release resources if this was the last opener. */
   if (--inode->open_cnt == 0) {
-    struct inode_disk *disk_inode;
+    struct inode_disk *disk_inode = malloc(BLOCK_SECTOR_SIZE);
     cache_read(inode->sector, (void*) disk_inode);
 
     /* Remove from inode list and release lock. */
@@ -480,7 +480,7 @@ off_t inode_write_at(struct inode* inode, const void* buffer_, off_t size, off_t
   list_init(&allocated_sectors);
   struct block_list_elem *block_elem;
 
-  struct inode_disk *disk_inode;
+  struct inode_disk *disk_inode = malloc(BLOCK_SECTOR_SIZE);
   cache_read(inode->sector, disk_inode);
 
   if (byte_to_sector(inode, offset + size - 1) == -1) {
@@ -656,7 +656,7 @@ void inode_allow_write(struct inode* inode) {
 
 /* Returns the length, in bytes, of INODE's data. */
 off_t inode_length(const struct inode* inode) { 
-  struct inode_disk *disk_inode;
+  struct inode_disk *disk_inode = malloc(BLOCK_SECTOR_SIZE);
   cache_read(inode->sector, (void*) disk_inode);
   return disk_inode->length; 
 }
